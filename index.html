@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title data-i18n="app.title">Tagia</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div>
+        <h1 data-i18n="app.title">Tagia</h1>
+        <div class="sub" data-i18n="app.subtitle">Local AI batch tagging · GPU ready</div>
+      </div>
+      <div id="statusBadge" class="badge warn">
+        <span class="dot"></span>
+        <span id="statusText" data-i18n="app.statusDisconnected">Disconnected</span>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="tag" data-i18n="tabs.tag">Tag</button>
+      <button class="tab" data-tab="settings" data-i18n="tabs.settings">Settings</button>
+      <button class="tab" data-tab="install" data-i18n="tabs.install">Install</button>
+    </nav>
+
+    <div class="panels">
+      <!-- TAG -->
+      <section id="panel-tag" class="panel active">
+        <div class="sel-info">
+          <strong id="selCount">0</strong>
+          <span data-i18n="tag.selected">images selected (images only)</span>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="tag.run">Run</div>
+          <div class="grid-2">
+            <div class="col">
+              <label class="field-label" data-i18n="tag.model">Model</label>
+              <select id="modelSelect"></select>
+            </div>
+            <div class="col">
+              <label class="field-label" data-i18n="tag.device">Device</label>
+              <select id="deviceSelect">
+                <option value="auto" data-i18n="tag.deviceAuto">Auto (recommended)</option>
+                <option value="gpu" data-i18n="tag.deviceGpu">GPU only</option>
+                <option value="cpu" data-i18n="tag.deviceCpu">CPU only</option>
+              </select>
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <div class="col">
+              <label class="field-label"><span data-i18n="tag.threshold">Threshold</span>: <span id="thresholdVal">0.35</span></label>
+              <input type="range" id="threshold" min="0.05" max="0.95" step="0.01" value="0.35" />
+            </div>
+            <div class="col">
+              <label class="field-label" data-i18n="tag.maxTags">Max tags (0 = no limit)</label>
+              <input type="number" id="maxTags" min="0" max="500" step="1" value="0" />
+            </div>
+          </div>
+          <div class="checks" style="margin-top:8px">
+            <label class="check"><input type="checkbox" id="modeAppend" checked /> <span data-i18n="tag.append">Append to existing tags</span></label>
+            <label class="check"><input type="checkbox" id="skipTagged" /> <span data-i18n="tag.skipTagged">Skip already tagged</span></label>
+            <label class="check"><input type="checkbox" id="rawtag" /> <span data-i18n="tag.rawtag">Raw tags (underscore)</span></label>
+            <label class="check"><input type="checkbox" id="keepWorker" checked /> <span data-i18n="tag.keepWorker">Keep model loaded (faster)</span></label>
+            <label class="check"><input type="checkbox" id="writeAnnotation" checked /> <span data-i18n="tag.writeAnnotation">Also write tags to Note (safe Tagia block)</span></label>
+          </div>
+          <div class="hint" style="margin-top:6px" data-i18n="tag.writeAnnotationHint">
+            Memo: only updates the &lt;!-- Tagia --&gt; block. Your other notes are kept.
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="tag.excludeAdd">Exclude / extra tags</div>
+          <div class="col" style="margin-bottom:8px">
+            <label class="field-label" data-i18n="tag.exclude">Exclude (comma-separated)</label>
+            <input type="text" id="excludeTags" data-i18n-placeholder="tag.excludePh" placeholder="e.g. monochrome, greyscale" />
+          </div>
+          <div class="col">
+            <label class="field-label" data-i18n="tag.additional">Extra tags (comma-separated)</label>
+            <input type="text" id="additionalTags" data-i18n-placeholder="tag.additionalPh" placeholder="e.g. masterpiece" />
+          </div>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-bar"><i id="progressFill"></i></div>
+          <div class="progress-meta">
+            <span id="progressText" data-i18n="tag.waiting">Waiting</span>
+            <span id="progressSpeed"></span>
+          </div>
+        </div>
+
+        <div class="footer-actions">
+          <button class="btn primary" id="btnTag" data-i18n="tag.btnTag">Tag selected images</button>
+          <button class="btn danger" id="btnStop" disabled data-i18n="tag.btnStop">Stop</button>
+        </div>
+        <div class="footer-actions" style="margin-top:8px">
+          <button class="btn" id="btnRefreshSel" data-i18n="tag.btnRefresh">Refresh selection</button>
+          <button class="btn" id="btnWarmup" data-i18n="tag.btnWarmup">Load model</button>
+        </div>
+
+        <div class="section" style="margin-top:12px">
+          <div class="section-title" data-i18n="tag.log">Log</div>
+          <div id="log" class="log"></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="panel-settings" class="panel">
+        <div class="section">
+          <div class="section-title" data-i18n="settings.language">Language</div>
+          <div class="col">
+            <label class="field-label" data-i18n="settings.languageHint">UI language</label>
+            <select id="langSelect">
+              <option value="auto" data-i18n="settings.langAuto">Auto (follow Eagle)</option>
+              <option value="en">English</option>
+              <option value="ja_JP">日本語</option>
+              <option value="zh_CN">简体中文</option>
+              <option value="zh_TW">繁體中文</option>
+              <option value="ko_KR">한국어</option>
+            </select>
+            <div class="hint" style="margin-top:4px" data-i18n="settings.languageNote">
+              Auto uses Eagle’s language setting. Manual choice is saved for this plugin only.
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="settings.paths">Paths</div>
+          <div class="col" style="margin-bottom:8px">
+            <label class="field-label" data-i18n="settings.engineFolder">Tagging engine folder</label>
+            <div class="row">
+              <input type="text" id="taggerRoot" data-i18n-placeholder="settings.enginePh" placeholder="C:\path\to\tagger-engine" />
+              <button class="btn sm" id="btnBrowseRoot" data-i18n="settings.browse">Browse</button>
+            </div>
+            <div class="hint" data-i18n="settings.engineHint">Folder that contains run.py and tagger/</div>
+          </div>
+          <div class="col">
+            <label class="field-label" data-i18n="settings.python">Python (blank = prefer venv → PATH)</label>
+            <div class="row">
+              <input type="text" id="pythonPath" data-i18n-placeholder="settings.pythonPh" placeholder="Auto-detect" />
+              <button class="btn sm" id="btnBrowsePy" data-i18n="settings.browse">Browse</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="settings.status">Status</div>
+          <div class="status-card" id="statusCard">
+            <div class="line"><span class="k">Python</span><span class="v" id="stPython">—</span></div>
+            <div class="line"><span class="k">Engine</span><span class="v" id="stRoot">—</span></div>
+            <div class="line"><span class="k">venv</span><span class="v" id="stVenv">—</span></div>
+            <div class="line"><span class="k">Providers</span><span class="v" id="stProviders">—</span></div>
+            <div class="line"><span class="k">Worker</span><span class="v" id="stWorker">—</span></div>
+            <div class="line"><span class="k">Model</span><span class="v" id="stModel">—</span></div>
+          </div>
+          <div class="footer-actions">
+            <button class="btn" id="btnCheck" data-i18n="settings.btnCheck">Check environment</button>
+            <button class="btn" id="btnRestartWorker" data-i18n="settings.btnRestart">Restart worker</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="settings.save">Save</div>
+          <button class="btn primary block" id="btnSaveSettings" data-i18n="settings.btnSave">Save settings</button>
+        </div>
+      </section>
+
+      <!-- INSTALL -->
+      <section id="panel-install" class="panel">
+        <div class="section">
+          <div class="section-title" data-i18n="install.setup">One-click setup</div>
+          <div class="hint" style="margin-bottom:10px" data-i18n="install.setupHint">
+            Detect/install Python, fetch the engine, create venv, install deps, and switch GPU packages.
+          </div>
+          <div class="steps">
+            <div class="step" id="step-python">
+              <div class="n">1</div>
+              <div class="body">
+                <div class="title" data-i18n="install.step1Title">Python detect / auto-install</div>
+                <div class="desc" data-i18n="install.step1Desc">Installs 3.10+ if missing</div>
+              </div>
+            </div>
+            <div class="step" id="step-clone">
+              <div class="n">2</div>
+              <div class="body">
+                <div class="title" data-i18n="install.step2Title">Engine files</div>
+                <div class="desc" data-i18n="install.step2Desc">Clone from GitHub</div>
+              </div>
+            </div>
+            <div class="step" id="step-venv">
+              <div class="n">3</div>
+              <div class="body">
+                <div class="title" data-i18n="install.step3Title">venv + requirements</div>
+                <div class="desc" data-i18n="install.step3Desc">Create virtualenv and install packages</div>
+              </div>
+            </div>
+            <div class="step" id="step-gpu">
+              <div class="n">4</div>
+              <div class="body">
+                <div class="title" data-i18n="install.step4Title">GPU runtime (optional)</div>
+                <div class="desc" data-i18n="install.step4Desc">Switch to onnxruntime-gpu</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="install.dest">Install location</div>
+          <div class="row">
+            <input type="text" id="installDir" />
+            <button class="btn sm" id="btnBrowseInstall" data-i18n="settings.browse">Browse</button>
+          </div>
+          <div class="hint" style="margin-top:4px" data-i18n="install.destHint">Defaults to Documents engine folder</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="install.actions">Actions</div>
+          <div class="footer-actions">
+            <button class="btn primary" id="btnInstallAll" data-i18n="install.btnInstallAll">Install all (CPU)</button>
+          </div>
+          <div class="footer-actions">
+            <button class="btn" id="btnInstallGpu" data-i18n="install.btnGpu">Install GPU package</button>
+            <button class="btn" id="btnInstallCpu" data-i18n="install.btnCpu">Switch to CPU</button>
+          </div>
+          <div class="hint" style="margin-top:8px" data-i18n="install.gpuHint">
+            GPU needs NVIDIA + CUDA. Use Switch to CPU if it fails.
+          </div>
+        </div>
+
+        <div id="installBusy" class="busy-box hidden">
+          <div class="spinner" aria-hidden="true"></div>
+          <div class="busy-text">
+            <div id="busyTitle" class="busy-title" data-i18n="install.busyDefault">Working…</div>
+            <div id="busyDetail" class="busy-detail" data-i18n="install.busyWait">Please wait</div>
+            <div id="busyElapsed" class="busy-elapsed">0s</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="install.log">Install log</div>
+          <div id="installLog" class="log" style="height:160px"></div>
+        </div>
+
+        <div class="section uninstall-section">
+          <div class="section-title" data-i18n="install.uninstall">Uninstall</div>
+          <div class="hint" style="margin-bottom:8px" data-i18n="install.uninstallHint">
+            Removes engine and venv installed by this plugin.
+          </div>
+          <label class="check" style="margin-bottom:8px">
+            <input type="checkbox" id="uninstallModels" checked />
+            <span data-i18n="install.uninstallModels">Also delete model cache (Hugging Face)</span>
+          </label>
+          <button class="btn danger sm" id="btnUninstall" data-i18n="install.btnUninstall">Uninstall</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/plugin.js"></script>
+</body>
+</html>

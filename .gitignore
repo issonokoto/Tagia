@@ -1,0 +1,34 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*~
+.idea/
+.vscode/
+
+# Node / local junk
+node_modules/
+npm-debug.log*
+
+# Python / engine runtime (never ship user installs)
+venv/
+__pycache__/
+*.py[cod]
+.Python
+*.egg-info/
+
+# Tagia ownership / local config artifacts
+.tagia-owned.json
+
+# Models / caches
+.cache/
+*.onnx
+*.h5
+
+# Secrets
+.env
+.env.*
+*.pem
+
+

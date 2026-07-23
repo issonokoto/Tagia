@@ -1,0 +1,27 @@
+{
+    "id": "c30c0fd0-df7a-4792-af3d-cf24674eba45",
+    "version": "1.4.0",
+    "platform": "all",
+    "arch": "all",
+    "name": "{{manifest.app.name}}",
+    "logo": "/logo.png",
+    "keywords": ["tagia", "tagger", "ai", "tag", "anime", "booru", "local", "gpu"],
+    "devTools": false,
+    "fallbackLanguage": "en",
+    "languages": ["en", "ja_JP", "zh_CN", "zh_TW", "ko_KR"],
+    "main": {
+        "url": "index.html",
+        "width": 460,
+        "height": 720,
+        "minWidth": 400,
+        "minHeight": 560,
+        "resizable": true,
+        "maximizable": true,
+        "minimizable": true,
+        "fullscreenable": false,
+        "alwaysOnTop": false,
+        "frame": true,
+        "backgroundColor": "#12141a",
+        "multiple": false
+    }
+}
