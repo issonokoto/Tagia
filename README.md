@@ -1,4 +1,4 @@
-# Tagia (Eagle Plugin) v1.4.0
+# Tagia (Eagle Plugin) v1.4.1
 
 Local AI image tagging for [Eagle](https://eagle.cool/).  
 Engine snapshot: [corkborg/wd14-tagger-standalone](https://github.com/corkborg/wd14-tagger-standalone) (pinned commit; product name is **Tagia**).

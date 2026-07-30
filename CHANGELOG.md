@@ -7,6 +7,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.1] — 2026-07-30
+
+### Security
+
+- **Uninstall no longer touches Hugging Face caches.** Removed the “Also delete model cache” option and all scanning of `~/.cache/huggingface/hub` by name patterns. Uninstall deletes only Tagia-owned engine directories (ownership marker + recorded path).
+
+### Changed
+
+- Install / uninstall copy updated in all locales to state that shared model caches are never deleted.
+- Marketplace covers simplified (plugin name, one tagline, three large chips; no dense feature list / footer).
+- Community listing text rewritten to match uninstall behavior.
+
+### Fixed
+
+- Eagle Community re-review: shared HF cache deletion, listing/implementation mismatch, unreadable cover text.
+
+---
+
 ## [1.4.0] — 2026-07-23
 
 ### Security
@@ -52,54 +70,48 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## Community “What’s new” (paste-ready) — v1.4.0
-
-Submit each locale’s changelog using the block below.
+## Community “What’s new” (paste-ready) — v1.4.1
 
 ### English
 
 ```
-v1.4.0 — Security and install hardening (Community re-review)
+v1.4.1 — Uninstall safety and marketplace assets (Community re-review)
 
-- Engine is installed from a pinned GitHub commit archive with SHA-256 verification. Git is not required.
-- Python packages are installed from versions pinned in the plugin package (not a mutable remote default branch).
-- On Windows, the official Python.org installer is downloaded over HTTPS only, with host allowlist, redirect limits, SHA-256 check, and Authenticode verification before execution.
-- Uninstall recursively deletes only Tagia-owned engine directories (ownership marker + recorded path). User-managed engine folders are never deleted. System Python is kept.
-- Install panel copy and Community listing text updated to match the new flow (en / ja / zh-CN / zh-TW / ko).
+- Uninstall removes only the Tagia-owned engine directory (ownership marker + recorded path).
+- Removed Hugging Face model-cache deletion; shared ~/.cache/huggingface is never scanned or deleted.
+- Store listing text updated in all locales to match this uninstall scope.
+- Marketplace covers simplified for card readability (name, short tagline, three chips).
 ```
 
 ### 日本語
 
 ```
-v1.4.0 — セキュリティとインストールの改善（Community 再審査対応）
+v1.4.1 — アンインストール安全性とカバー画像（Community 再審査対応）
 
-- エンジンは固定 commit のアーカイブを SHA-256 検証して導入します。Git は不要です。
-- Python 依存関係は、プラグイン同梱の固定バージョンからインストールします（変更されうるデフォルトブランチの requirements は使いません）。
-- Windows では公式 Python.org インストーラのみを HTTPS で取得し、許可ホスト・リダイレクト制限・SHA-256・Authenticode を確認してから実行します。
-- アンインストールは Tagia が作成したエンジンフォルダのみ再帰削除します（所有マーカー＋記録パス一致）。ユーザー管理のエンジンは消しません。システム Python は残します。
-- インストール画面の文言と Community 申請文を新フローに合わせて更新しました（英・日・簡中・繁中・韓）。
+- アンインストールは Tagia 所有のエンジンフォルダのみ削除（所有マーカー＋記録パス）。
+- Hugging Face モデルキャッシュ削除機能を削除。共有の ~/.cache/huggingface は走査・削除しません。
+- 申請文を全言語でこの削除範囲に合わせて更新。
+- マーケットプレイス用カバーを簡素化（名前・短い一文・チップ3つ）。
 ```
 
 ### 简体中文
 
 ```
-v1.4.0 — 安全性与安装流程加固（Community 复审）
+v1.4.1 — 卸载安全与商店封面（Community 复审）
 
-- 引擎改为下载固定 commit 的归档包，并在解压前校验 SHA-256。不需要 Git。
-- Python 依赖使用插件内固定版本安装，不再依赖可变的远程默认分支 requirements。
-- Windows 上仅从官方 Python.org 通过 HTTPS 下载安装包，限制主机与重定向次数，并在执行前校验 SHA-256 与 Authenticode。
-- 卸载仅递归删除 Tagia 创建并标记的引擎目录（所有权标记 + 记录路径一致）。不会删除用户自备引擎。系统 Python 保留。
-- 安装面板文案与 Community 上架说明已按新流程更新（英 / 日 / 简中 / 繁中 / 韩）。
+- 卸载仅删除 Tagia 拥有的引擎目录（所有权标记 + 记录路径）。
+- 已移除 Hugging Face 模型缓存删除；不会扫描或删除共享的 ~/.cache/huggingface。
+- 各语言上架文案已与卸载范围一致。
+- 商店封面简化（名称、一句说明、三个标签）。
 ```
 
 ### 繁體中文
 
 ```
-v1.4.0 — 安全性與安裝流程強化（Community 複審）
+v1.4.1 — 解除安裝安全性與商店封面（Community 複審）
 
-- 引擎改為下載固定 commit 的封存檔，並在解壓前驗證 SHA-256。不需要 Git。
-- Python 相依套件使用外掛內固定版本安裝，不再依賴可變的遠端預設分支 requirements。
-- Windows 上僅從官方 Python.org 以 HTTPS 下載安裝程式，限制主機與重新導向次數，並在執行前驗證 SHA-256 與 Authenticode。
-- 解除安裝僅遞迴刪除 Tagia 建立並標記的引擎目錄（擁有權標記 + 記錄路徑一致）。不會刪除使用者自備引擎。系統 Python 會保留。
-- 安裝面板文案與 Community 上架說明已依新流程更新（英 / 日 / 簡中 / 繁中 / 韓）。
+- 解除安裝僅刪除 Tagia 擁有的引擎目錄（擁有權標記 + 記錄路徑）。
+- 已移除 Hugging Face 模型快取刪除；不會掃描或刪除共享的 ~/.cache/huggingface。
+- 各語言上架文案已與解除安裝範圍一致。
+- 商店封面簡化（名稱、一句說明、三個標籤）。
 ```

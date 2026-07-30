@@ -246,12 +246,8 @@
         <div class="section uninstall-section">
           <div class="section-title" data-i18n="install.uninstall">Uninstall</div>
           <div class="hint" style="margin-bottom:8px" data-i18n="install.uninstallHint">
-            Removes engine and venv installed by this plugin.
+            Removes only the Tagia-owned engine directory (ownership marker). Does not delete Hugging Face model caches or system Python.
           </div>
-          <label class="check" style="margin-bottom:8px">
-            <input type="checkbox" id="uninstallModels" checked />
-            <span data-i18n="install.uninstallModels">Also delete model cache (Hugging Face)</span>
-          </label>
           <button class="btn danger sm" id="btnUninstall" data-i18n="install.btnUninstall">Uninstall</button>
         </div>
       </section>

@@ -21,7 +21,7 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.0';
+  const PLUGIN_VERSION = '1.4.1';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
 
   /**
@@ -606,19 +606,6 @@
       const d = path.join(dest, ent.name);
       if (ent.isDirectory()) copyDirRecursive(s, d);
       else fs.copyFileSync(s, d);
-    }
-  }
-
-  function listHfTaggerCaches() {
-    const hub = path.join(os.homedir(), '.cache', 'huggingface', 'hub');
-    if (!exists(hub)) return [];
-    try {
-      return fs.readdirSync(hub, { withFileTypes: true })
-        .filter((d) => d.isDirectory())
-        .map((d) => path.join(hub, d.name))
-        .filter((p) => /wd-|SmilingWolf|camie-tagger|ml-danbooru|Z3D-E621|wd14|tagger/i.test(path.basename(p)));
-    } catch {
-      return [];
     }
   }
 
@@ -2252,10 +2239,9 @@
       }
     }
 
-    const dropModels = !!($('uninstallModels') && $('uninstallModels').checked);
-    const modelCaches = dropModels ? listHfTaggerCaches() : [];
-
-    if (!targets.length && !modelCaches.length) {
+    // Uninstall deletes ONLY Tagia-owned engine directories.
+    // Shared Hugging Face caches under ~/.cache/huggingface are never scanned or removed.
+    if (!targets.length) {
       logInst(t('install.uninstallNone'), 'warn');
       await eagle.dialog.showMessageBox({
         title: t('app.title'),
@@ -2268,16 +2254,11 @@
     }
 
     const detailLines = [];
-    if (targets.length) {
-      detailLines.push('[Tagia-owned engine / venv]');
-      targets.forEach((p) => detailLines.push('· ' + p));
-    }
-    if (modelCaches.length) {
-      detailLines.push('[model cache]');
-      modelCaches.forEach((p) => detailLines.push('· ' + path.basename(p)));
-    }
+    detailLines.push('[Tagia-owned engine / venv only]');
+    targets.forEach((p) => detailLines.push('· ' + p));
     detailLines.push('');
     detailLines.push(t('install.uninstallNoPython'));
+    detailLines.push(t('install.uninstallNoHfCache'));
     detailLines.push(t('install.uninstallSafetyNote'));
 
     const conf = await eagle.dialog.showMessageBox({
@@ -2312,20 +2293,6 @@
           else logInst('Removed: ' + target, 'ok');
         } catch (e) {
           logInst('Delete failed: ' + target + ' / ' + (e.message || e), 'err');
-        }
-      }
-
-      for (const cache of modelCaches) {
-        setBusy(null, 'Cache: ' + path.basename(cache));
-        logInst('Deleting model cache: ' + cache, 'info');
-        try {
-          rmDirRecursive(cache);
-          logInst(
-            exists(cache) ? 'Cache remains: ' + path.basename(cache) : 'Cache removed: ' + path.basename(cache),
-            exists(cache) ? 'err' : 'ok'
-          );
-        } catch (e) {
-          logInst('Cache delete failed: ' + (e.message || e), 'err');
         }
       }
 
