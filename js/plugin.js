@@ -21,13 +21,13 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.1';
+  const PLUGIN_VERSION = '1.4.2';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
 
   /**
    * Pinned engine snapshot (immutable).
-   * Source: corkborg/wd14-tagger-standalone @ commit below.
-   * ZIP from codeload.github.com; hash is of the archive bytes.
+   * Full source is bundled under vendor/wd14-tagger-standalone/ for review.
+   * Optional network re-fetch uses the same commit ZIP + SHA-256.
    */
   const ENGINE_REPO = 'corkborg/wd14-tagger-standalone';
   const ENGINE_COMMIT = '9818bcf4c45b5bb08384b7ac6ba6c6126edc8335';
@@ -36,21 +36,15 @@
   const ENGINE_ZIP_SHA256 =
     '3fac85e6b30aa6035b5884d12e357ed684129175573913b175524b2161d156c0';
 
-  /**
-   * Pinned Python packages (versions from the engine commit's requirements.txt).
-   * Installed from this list — not from a mutable remote requirements file.
-   */
-  const PINNED_PIP_PACKAGES = [
-    'numpy==2.2.2',
-    'pandas==2.2.3',
-    'Pillow==11.1.0',
-    'huggingface-hub==0.28.1',
-    'deepdanbooru==1.0.3',
-    'onnxruntime==1.20.1',
-    'opencv-python==4.11.0.86',
-  ];
-  const PINNED_ONNX_GPU = 'onnxruntime-gpu==1.20.1';
-  const PINNED_ONNX_CPU = 'onnxruntime==1.20.1';
+  /** Hash-locked pip install files (shipped with plugin) */
+  const REQ_LOCKED_CPU = 'requirements-locked-win-amd64.txt';
+  const REQ_LOCKED_GPU = 'requirements-locked-gpu-win-amd64.txt';
+  const PIP_PINNED = 'pip-pinned.txt';
+  const MODELS_PINNED = 'models-pinned.json';
+  /** Bootstrap pip only (exact + hash). Never unconstrained --upgrade pip. */
+  const PINNED_PIP_VERSION = '25.0.1';
+  const PINNED_PIP_SHA256 =
+    'c46efd13b6aa8279f33f2864459c8ce587ea6a1a59ee20de055868d8f7688f7f';
 
   /** Official CPython Windows installer (64-bit) — pinned + SHA-256 */
   const PYTHON_WIN_INSTALLER = {
@@ -59,6 +53,13 @@
     sha256: 'd8dede5005564b408ba50317108b765ed9c3c510342a598f9fd42681cbe0648b',
     /** Authenticode subject must contain this */
     signerContains: 'Python Software Foundation',
+  };
+
+  /** winget: explicit source + exact package version only */
+  const WINGET_PYTHON = {
+    id: 'Python.Python.3.10',
+    version: '3.10.11',
+    source: 'winget',
   };
 
   /** Hosts allowed for downloadFile (HTTPS only) */
@@ -979,44 +980,50 @@
   }
 
   /**
-   * Install Python 3.10 via winget (Windows), else official installer with
-   * SHA-256 + Authenticode verification.
+   * Install Python 3.10.11 via winget (explicit source + exact version), else
+   * official installer with SHA-256 + Authenticode verification.
+   * Note: uninstalling Tagia does NOT remove this system Python.
    */
   async function installPythonWindows(logFn) {
     const log = logFn || logInst;
     log('Python が見つからないため自動インストールを試行します…', 'info');
+    log('Note: Tagia をアンインストールしても、ここで入れた Python は削除されずシステムに残ります。', 'warn');
 
-    // Prefer winget
+    // Prefer winget — only explicit source "winget" and exact version
     const wingetCheck = await runCmd('where.exe', ['winget']);
     const hasWinget = wingetCheck.code === 0 && wingetCheck.stdout.trim();
 
     if (hasWinget) {
-      log('winget で Python 3.10 をインストール中（数分）…', 'info');
-      const pkgs = ['Python.Python.3.10', 'Python.Python.3.11', 'Python.Python.3.12'];
-      for (const pkg of pkgs) {
-        log('winget install ' + pkg, 'info');
-        const r = await runCmd('winget', [
-          'install', '-e', '--id', pkg,
-          '--accept-package-agreements',
-          '--accept-source-agreements',
-          '--disable-interactivity',
-        ], {
-          onOut: (t) => {
-            const line = t.trim();
-            if (line) log(line);
-          },
-          onErr: (t) => {
-            const line = t.trim();
-            if (line) log(line);
-          },
-        });
-        log('winget exit: ' + r.code, r.code === 0 ? 'ok' : 'warn');
-        const found = await findWorkingPython({});
-        if (found.ok) {
-          log('Python インストール成功: ' + found.path, 'ok');
-          log(found.version, 'ok');
-          return found;
-        }
+      const wp = WINGET_PYTHON;
+      log(
+        'winget install ' + wp.id + ' --version ' + wp.version + ' --source ' + wp.source,
+        'info'
+      );
+      const r = await runCmd('winget', [
+        'install',
+        '-e',
+        '--id', wp.id,
+        '--version', wp.version,
+        '--source', wp.source,
+        '--accept-package-agreements',
+        '--accept-source-agreements',
+        '--disable-interactivity',
+      ], {
+        onOut: (t) => {
+          const line = t.trim();
+          if (line) log(line);
+        },
+        onErr: (t) => {
+          const line = t.trim();
+          if (line) log(line);
+        },
+      });
+      log('winget exit: ' + r.code, r.code === 0 ? 'ok' : 'warn');
+      const found = await findWorkingPython({});
+      if (found.ok) {
+        log('Python インストール成功: ' + found.path, 'ok');
+        log(found.version, 'ok');
+        return found;
       }
     } else {
       log('winget が使えません。公式インストーラを検証付きで取得します…', 'info');
@@ -1065,8 +1072,52 @@
     return { ok: false, error: 'auto-install failed' };
   }
 
+  function pluginPythonDir() {
+    if (pluginPath) return path.join(pluginPath, 'python');
+    try {
+      return path.join(__dirname, '..', 'python');
+    } catch {
+      return path.join(process.cwd(), 'python');
+    }
+  }
+
+  function bundledEngineRoot() {
+    if (pluginPath) return path.join(pluginPath, 'vendor', 'wd14-tagger-standalone');
+    try {
+      return path.join(__dirname, '..', 'vendor', 'wd14-tagger-standalone');
+    } catch {
+      return path.join(process.cwd(), 'vendor', 'wd14-tagger-standalone');
+    }
+  }
+
+  function copyPluginSecurityFiles(installDir, logFn) {
+    const log = logFn || (() => {});
+    const pyDir = pluginPythonDir();
+    const names = [REQ_LOCKED_CPU, REQ_LOCKED_GPU, PIP_PINNED, MODELS_PINNED, 'worker.py'];
+    for (const name of names) {
+      const src = path.join(pyDir, name);
+      if (!exists(src)) continue;
+      try {
+        fs.copyFileSync(src, path.join(installDir, name));
+        log('Copied ' + name, 'ok');
+      } catch (e) {
+        log('Copy failed ' + name + ': ' + (e.message || e), 'warn');
+      }
+    }
+    // Also keep under python/ for worker discovery of models-pinned.json next to worker
+    try {
+      const destPy = path.join(installDir, 'python');
+      fs.mkdirSync(destPy, { recursive: true });
+      for (const name of names) {
+        const src = path.join(pyDir, name);
+        if (exists(src)) fs.copyFileSync(src, path.join(destPy, name));
+      }
+    } catch {}
+  }
+
   /**
-   * Download pinned engine ZIP, verify SHA-256, extract into installDir, write ownership marker.
+   * Install engine from bundled vendor source (preferred), or download the same
+   * pinned commit ZIP with SHA-256 verification. Writes ownership marker.
    */
   async function fetchPinnedEngine(installDir, logFn) {
     const log = logFn || logInst;
@@ -1074,45 +1125,6 @@
     const extractDir = secureTempPath('tagia-engine-extract', '');
     try {
       log('Engine pin: ' + ENGINE_REPO + '@' + ENGINE_COMMIT.slice(0, 12), 'info');
-      log('Downloading engine archive…', 'info');
-      await downloadFile(ENGINE_ZIP_URL, zipPath, log);
-      await verifyFileSha256(zipPath, ENGINE_ZIP_SHA256, log);
-
-      fs.mkdirSync(extractDir, { recursive: true });
-      // Windows 10+ / macOS / Linux: tar can extract zip
-      setBusy('2/3 Engine', 'Extracting archive…');
-      const tar = await runCmd('tar', ['-xf', zipPath, '-C', extractDir], {
-        onOut: (t) => { if (t.trim()) log(t.trim()); },
-        onErr: (t) => { if (t.trim()) log(t.trim()); },
-      });
-      if (tar.code !== 0) {
-        // PowerShell fallback on Windows
-        if (process.platform === 'win32') {
-          const ps =
-            'Expand-Archive -LiteralPath ' +
-            JSON.stringify(zipPath) +
-            ' -DestinationPath ' +
-            JSON.stringify(extractDir) +
-            ' -Force';
-          const r2 = await runCmd('powershell.exe', [
-            '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps,
-          ]);
-          if (r2.code !== 0) {
-            throw new Error('Extract failed (tar/Expand-Archive)');
-          }
-        } else {
-          throw new Error('Extract failed (tar exit ' + tar.code + ')');
-        }
-      }
-
-      const top = fs.readdirSync(extractDir).filter((n) => !n.startsWith('.'));
-      let srcRoot = extractDir;
-      if (top.length === 1 && fs.statSync(path.join(extractDir, top[0])).isDirectory()) {
-        srcRoot = path.join(extractDir, top[0]);
-      }
-      if (!exists(path.join(srcRoot, 'run.py')) || !exists(path.join(srcRoot, 'tagger'))) {
-        throw new Error('Extracted archive is not a valid engine root');
-      }
 
       if (exists(installDir)) {
         const left = fs.readdirSync(installDir);
@@ -1121,14 +1133,53 @@
         }
       }
       fs.mkdirSync(installDir, { recursive: true });
-      copyDirRecursive(srcRoot, installDir);
 
-      // Prefer plugin-pinned requirements over archive copy for auditability
-      try {
-        const reqBody = PINNED_PIP_PACKAGES.join('\n') + '\n';
-        fs.writeFileSync(path.join(installDir, 'requirements-tagia-pinned.txt'), reqBody, 'utf8');
-      } catch {}
+      const bundled = bundledEngineRoot();
+      if (isTaggerRoot(bundled)) {
+        setBusy('2/3 Engine', 'Copying bundled engine source…');
+        log('Using bundled engine source: ' + bundled, 'ok');
+        copyDirRecursive(bundled, installDir);
+      } else {
+        log('Bundled engine missing; downloading pinned ZIP…', 'warn');
+        await downloadFile(ENGINE_ZIP_URL, zipPath, log);
+        await verifyFileSha256(zipPath, ENGINE_ZIP_SHA256, log);
 
+        fs.mkdirSync(extractDir, { recursive: true });
+        setBusy('2/3 Engine', 'Extracting archive…');
+        const tar = await runCmd('tar', ['-xf', zipPath, '-C', extractDir], {
+          onOut: (t) => { if (t.trim()) log(t.trim()); },
+          onErr: (t) => { if (t.trim()) log(t.trim()); },
+        });
+        if (tar.code !== 0) {
+          if (process.platform === 'win32') {
+            const ps =
+              'Expand-Archive -LiteralPath ' +
+              JSON.stringify(zipPath) +
+              ' -DestinationPath ' +
+              JSON.stringify(extractDir) +
+              ' -Force';
+            const r2 = await runCmd('powershell.exe', [
+              '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps,
+            ]);
+            if (r2.code !== 0) throw new Error('Extract failed (tar/Expand-Archive)');
+          } else {
+            throw new Error('Extract failed (tar exit ' + tar.code + ')');
+          }
+        }
+        const top = fs.readdirSync(extractDir).filter((n) => !n.startsWith('.'));
+        let srcRoot = extractDir;
+        if (top.length === 1 && fs.statSync(path.join(extractDir, top[0])).isDirectory()) {
+          srcRoot = path.join(extractDir, top[0]);
+        }
+        if (!isTaggerRoot(srcRoot)) throw new Error('Extracted archive is not a valid engine root');
+        copyDirRecursive(srcRoot, installDir);
+      }
+
+      if (!isTaggerRoot(installDir)) {
+        throw new Error('Engine root invalid after install');
+      }
+
+      copyPluginSecurityFiles(installDir, log);
       writeOwnershipMarker(installDir);
       log('Engine installed (owned by Tagia): ' + installDir, 'ok');
       return installDir;
@@ -2048,22 +2099,46 @@
         logInst('venv already exists', 'ok');
       }
 
-      setBusy('3/3 venv + packages', 'Upgrading pip…');
-      logInst('pip install pinned packages (may take a few minutes)…', 'info');
-      const pip = await runCmd(vpy, ['-m', 'pip', 'install', '--upgrade', 'pip'], {
-        cwd: installDir,
-        onOut: (t) => { if (t.trim()) logInst(t.trim()); },
-        onErr: (t) => { if (t.trim()) logInst(t.trim()); },
-      });
-      logInst('pip upgrade: exit ' + pip.code, pip.code === 0 ? 'ok' : 'warn');
+      // Bootstrap exact pip version with hash (never unconstrained --upgrade pip)
+      setBusy('3/3 venv + packages', 'Installing pinned pip…');
+      const pipPinSrc = path.join(pluginPythonDir(), PIP_PINNED);
+      const pipPinDst = path.join(installDir, PIP_PINNED);
+      if (exists(pipPinSrc)) {
+        try { fs.copyFileSync(pipPinSrc, pipPinDst); } catch {}
+      }
+      if (exists(pipPinDst)) {
+        logInst('Installing pip==' + PINNED_PIP_VERSION + ' with --require-hashes…', 'info');
+        const pipInst = await runCmd(
+          vpy,
+          ['-m', 'pip', 'install', '--disable-pip-version-check', '--require-hashes', '-r', pipPinDst],
+          {
+            cwd: installDir,
+            onOut: (t) => { if (t.trim()) logInst(t.trim()); },
+            onErr: (t) => { if (t.trim()) logInst(t.trim()); },
+          }
+        );
+        logInst('pip pin exit: ' + pipInst.code, pipInst.code === 0 ? 'ok' : 'warn');
+      } else {
+        logInst('pip-pinned.txt missing; keeping venv pip as-is (no upgrade)', 'warn');
+      }
 
-      setBusy('3/3 venv + packages', 'Installing pinned deps…');
-      // Write pinned list into engine folder for audit, then install from that local file
-      const pinnedReq = path.join(installDir, 'requirements-tagia-pinned.txt');
-      fs.writeFileSync(pinnedReq, PINNED_PIP_PACKAGES.join('\n') + '\n', 'utf8');
+      setBusy('3/3 venv + packages', 'Installing hash-locked deps…');
+      copyPluginSecurityFiles(installDir, logInst);
+      const lockedReq = path.join(installDir, REQ_LOCKED_CPU);
+      if (!exists(lockedReq)) {
+        logInst('Missing ' + REQ_LOCKED_CPU + ' — cannot install safely', 'err');
+        markStep('step-venv', false);
+        return;
+      }
+      logInst('pip install --require-hashes -r ' + REQ_LOCKED_CPU + ' (may take a few minutes)…', 'info');
       const inst = await runCmd(
         vpy,
-        ['-m', 'pip', 'install', '--disable-pip-version-check', '-r', pinnedReq],
+        [
+          '-m', 'pip', 'install',
+          '--disable-pip-version-check',
+          '--require-hashes',
+          '-r', lockedReq,
+        ],
         {
           cwd: installDir,
           onOut: (t) => { if (t.trim()) logInst(t.trim()); },
@@ -2071,12 +2146,12 @@
         }
       );
       if (inst.code !== 0) {
-        logInst('Pinned dependency install failed', 'err');
+        logInst('Hash-locked dependency install failed', 'err');
         if (inst.stderr) logInst(inst.stderr, 'err');
         markStep('step-venv', false);
         return;
       }
-      logInst('Pinned dependencies installed', 'ok');
+      logInst('Hash-locked dependencies installed', 'ok');
       markStep('step-venv', true);
 
       // save config — only mark owned path when Tagia created the engine tree
@@ -2137,18 +2212,42 @@
           onErr: (t) => { if (t.trim()) logInst(t.trim()); },
         });
         setBusy(null, 'onnxruntime-gpu をインストール中…（時間がかかります）');
-        logInst('Installing pinned ' + PINNED_ONNX_GPU + '…', 'info');
-        const r = await runCmd(vpy, ['-m', 'pip', 'install', PINNED_ONNX_GPU], {
+        const gpuLock = path.join(cfg.taggerRoot, REQ_LOCKED_GPU);
+        const gpuLockSrc = path.join(pluginPythonDir(), REQ_LOCKED_GPU);
+        if (!exists(gpuLock) && exists(gpuLockSrc)) {
+          try { fs.copyFileSync(gpuLockSrc, gpuLock); } catch {}
+        }
+        if (!exists(gpuLock)) {
+          logInst('Missing GPU lock file ' + REQ_LOCKED_GPU, 'err');
+          markStep('step-gpu', false);
+          return;
+        }
+        logInst('Installing hash-locked GPU package (--no-deps)…', 'info');
+        const r = await runCmd(vpy, [
+          '-m', 'pip', 'install',
+          '--disable-pip-version-check',
+          '--require-hashes',
+          '--no-deps',
+          '-r', gpuLock,
+        ], {
           onOut: (t) => { if (t.trim()) logInst(t.trim()); },
           onErr: (t) => { if (t.trim()) logInst(t.trim()); },
         });
         if (r.code !== 0) {
-          logInst('GPU インストール失敗。CPU に戻します。', 'err');
+          logInst('GPU インストール失敗。CPU lock に戻します。', 'err');
           setBusy(null, 'CPU にフォールバック中…');
-          await runCmd(vpy, ['-m', 'pip', 'install', PINNED_ONNX_CPU], {
-            onOut: (t) => { if (t.trim()) logInst(t.trim()); },
-            onErr: (t) => { if (t.trim()) logInst(t.trim()); },
-          });
+          const cpuLock = path.join(cfg.taggerRoot, REQ_LOCKED_CPU);
+          if (exists(cpuLock)) {
+            await runCmd(vpy, [
+              '-m', 'pip', 'install',
+              '--disable-pip-version-check',
+              '--require-hashes',
+              '-r', cpuLock,
+            ], {
+              onOut: (t) => { if (t.trim()) logInst(t.trim()); },
+              onErr: (t) => { if (t.trim()) logInst(t.trim()); },
+            });
+          }
           markStep('step-gpu', false);
           return;
         }
@@ -2176,13 +2275,27 @@
         }
       } else {
         setBusy(null, 'GPU パッケージを外しています…');
-        logInst('GPU パッケージを外し CPU onnxruntime を入れます…', 'info');
+        logInst('GPU パッケージを外し、hash-locked CPU 環境に戻します…', 'info');
         await runCmd(vpy, ['-m', 'pip', 'uninstall', '-y', 'onnxruntime-gpu', 'onnxruntime'], {
           onOut: (t) => { if (t.trim()) logInst(t.trim()); },
           onErr: (t) => { if (t.trim()) logInst(t.trim()); },
         });
-        setBusy(null, 'CPU onnxruntime をインストール中…');
-        const r = await runCmd(vpy, ['-m', 'pip', 'install', PINNED_ONNX_CPU], {
+        setBusy(null, 'CPU hash-lock をインストール中…');
+        let cpuLock = path.join(cfg.taggerRoot, REQ_LOCKED_CPU);
+        const cpuLockSrc = path.join(pluginPythonDir(), REQ_LOCKED_CPU);
+        if (!exists(cpuLock) && exists(cpuLockSrc)) {
+          try { fs.copyFileSync(cpuLockSrc, cpuLock); } catch {}
+        }
+        if (!exists(cpuLock)) {
+          logInst('Missing CPU lock file ' + REQ_LOCKED_CPU, 'err');
+          return;
+        }
+        const r = await runCmd(vpy, [
+          '-m', 'pip', 'install',
+          '--disable-pip-version-check',
+          '--require-hashes',
+          '-r', cpuLock,
+        ], {
           onOut: (t) => { if (t.trim()) logInst(t.trim()); },
           onErr: (t) => { if (t.trim()) logInst(t.trim()); },
         });

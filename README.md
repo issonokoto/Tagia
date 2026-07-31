@@ -1,4 +1,4 @@
-# Tagia (Eagle Plugin) v1.4.1
+# Tagia (Eagle Plugin) v1.4.2
 
 Local AI image tagging for [Eagle](https://eagle.cool/).  
 Engine snapshot: [corkborg/wd14-tagger-standalone](https://github.com/corkborg/wd14-tagger-standalone) (pinned commit; product name is **Tagia**).
@@ -16,12 +16,16 @@ Engine snapshot: [corkborg/wd14-tagger-standalone](https://github.com/corkborg/w
 
 ## Security (install / uninstall)
 
-- **No Git.** First-time engine install downloads a **pinned commit ZIP** from `codeload.github.com` and verifies **SHA-256** before extract.
-- Python packages are installed from a **version list pinned in this plugin** (`python/requirements-tagia-pinned.txt` / in-code list), not from a mutable remote default branch.
-- Windows Python fallback: official `python.org` installer only over **HTTPS**, host allowlist, redirect cap, random temp file, **SHA-256** + **Authenticode** checks before run.
-- Uninstall recursively deletes **only** directories Tagia created: ownership marker (`.tagia-owned.json` with plugin id + version) **and** recorded `ownedInstallPath`. User-supplied engine folders are never deleted.
+See [SECURITY.md](./SECURITY.md) for the full supply-chain notes.
 
-Pinned engine (v1.4.0):
+- **Bundled engine source** at `vendor/wd14-tagger-standalone` (fixed commit) for review; install copies it into a Tagia-owned folder.
+- Python deps: **`pip install --require-hashes`** with full recursive lock (`python/requirements-locked-win-amd64.txt`).
+- pip itself: exact pin + hash (`python/pip-pinned.txt`) — no unconstrained `--upgrade pip`.
+- Windows Python auto-install: winget **exact** `Python.Python.3.10` **3.10.11** / source `winget`, or verified python.org installer. **Uninstall does not remove Python.**
+- Models: pinned HF revision + file SHA-256 (`python/models-pinned.json`).
+- Uninstall deletes only Tagia-owned engine directories.
+
+Pinned engine:
 
 - Repo: `corkborg/wd14-tagger-standalone`
 - Commit: `9818bcf4c45b5bb08384b7ac6ba6c6126edc8335`

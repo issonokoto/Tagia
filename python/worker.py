@@ -22,6 +22,7 @@ Responses (one JSON object per line on stdout):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import time
@@ -50,6 +51,7 @@ _interrogators = None
 _AbsInterrogator = None
 _Image = None
 _ImageFile = None
+_MODEL_PINS: dict[str, Any] = {}
 
 _state: dict[str, Any] = {
     "model_key": None,
@@ -59,6 +61,110 @@ _state: dict[str, Any] = {
     "providers": [],
     "cancel": False,
 }
+
+
+def _load_model_pins() -> dict[str, Any]:
+    """Load models-pinned.json shipped next to this worker or under tagger root."""
+    candidates = [
+        Path(__file__).resolve().parent / "models-pinned.json",
+        TAGGER_ROOT / "models-pinned.json",
+        TAGGER_ROOT / "python" / "models-pinned.json",
+    ]
+    for p in candidates:
+        try:
+            if p.is_file():
+                return json.loads(p.read_text(encoding="utf-8"))
+        except Exception as e:
+            log(f"models-pinned load failed ({p}): {e}")
+    return {}
+
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _verify_file_hash(path: Path, expected: str | None, label: str) -> None:
+    if not expected:
+        log(f"No pinned SHA-256 for {label}; skipping hash check")
+        return
+    got = _sha256_file(path)
+    if got.lower() != expected.lower():
+        raise RuntimeError(
+            f"Model file hash mismatch for {label}\n"
+            f" expected: {expected}\n got:      {got}"
+        )
+    log(f"SHA-256 OK: {label} ({got[:16]}…)")
+
+
+def _patch_downloads_with_pins() -> None:
+    """
+    Force Hugging Face downloads to use pinned revision + verify SHA-256.
+    Destination: default HF hub cache (~/.cache/huggingface/hub).
+    """
+    global _MODEL_PINS
+    _MODEL_PINS = _load_model_pins()
+    if not _MODEL_PINS:
+        log("WARNING: models-pinned.json not found; model revision/hash pins disabled")
+        return
+
+    from huggingface_hub import hf_hub_download as _orig_hf_hub_download  # noqa: WPS433
+
+    def pinned_hf_hub_download(*args: Any, **kwargs: Any) -> str:
+        repo_id = kwargs.get("repo_id") or (args[0] if args else None)
+        filename = kwargs.get("filename")
+        if len(args) >= 2 and not filename:
+            filename = args[1]
+
+        pin_entry = None
+        pin_key = None
+        for key, meta in _MODEL_PINS.items():
+            if meta.get("repo_id") == repo_id:
+                pin_entry = meta
+                pin_key = key
+                break
+
+        if pin_entry:
+            rev = pin_entry.get("revision")
+            if rev:
+                kwargs["revision"] = rev
+            log(
+                f"HF download pinned: repo={repo_id} file={filename} "
+                f"rev={(rev or '')[:12]} model={pin_key}"
+            )
+
+        path = _orig_hf_hub_download(*args, **kwargs)
+        p = Path(path)
+
+        if pin_entry and filename:
+            files = pin_entry.get("files") or {}
+            meta = files.get(filename) or {}
+            expected = meta.get("sha256")
+            _verify_file_hash(p, expected, f"{repo_id}/{filename}")
+
+        return path
+
+    # Monkey-patch modules that imported hf_hub_download by name
+    import huggingface_hub as _hh  # noqa: WPS433
+
+    _hh.hf_hub_download = pinned_hf_hub_download  # type: ignore[attr-defined]
+
+    for mod_name in (
+        "tagger.interrogator.waifudiffusioninterrogator",
+        "tagger.interrogator.camietaggerinterrogator",
+        "tagger.interrogator.mldanbooruinterrogator",
+    ):
+        try:
+            mod = sys.modules.get(mod_name) or __import__(mod_name, fromlist=["*"])
+            if hasattr(mod, "hf_hub_download"):
+                setattr(mod, "hf_hub_download", pinned_hf_hub_download)
+        except Exception as e:
+            log(f"pin patch skip {mod_name}: {e}")
+
+    log(f"Model pins active for {len(_MODEL_PINS)} curated model(s)")
 
 
 def setup_tagger_root(root: Path) -> None:
@@ -76,6 +182,12 @@ def setup_tagger_root(root: Path) -> None:
     _ImageFile = ImageFile
     _AbsInterrogator = AbsInterrogator
     _interrogators = interrogators
+
+    try:
+        _patch_downloads_with_pins()
+    except Exception as e:
+        log(f"Model pin setup failed: {e}")
+        traceback.print_exc(file=sys.stderr)
 
 
 def list_models() -> list[str]:

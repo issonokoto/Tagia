@@ -1,0 +1,103 @@
+{
+  "wd-v1-4-swinv2-tagger.v3": {
+    "repo_id": "SmilingWolf/wd-swinv2-tagger-v3",
+    "revision": "627aef95638667ddcaa3ac8ae625e88ea5b02f51",
+    "files": {
+      "model.onnx": {
+        "size": 467460978,
+        "sha256": "e6774bff34d43bd49f75a47db4ef217dce701c9847b546523eb85ff6dbba1db1"
+      },
+      "selected_tags.csv": {
+        "size": 308468,
+        "sha256": "298633d94d0031d2081c0893f29c82eab7f0df00b08483ba8f29d1e979441217"
+      }
+    },
+    "all_model_files": [
+      "config.json",
+      "model.onnx",
+      "selected_tags.csv",
+      "sw_jax_cv_config.json"
+    ]
+  },
+  "wd-v1-4-convnext-tagger.v3": {
+    "repo_id": "SmilingWolf/wd-convnext-tagger-v3",
+    "revision": "d39e46de298d27340111b64965e20b8185c407e6",
+    "files": {
+      "model.onnx": {
+        "size": 394990732,
+        "sha256": "1b8a7abf13d9b8368267df47501d523789c4aeae66b2296ad98483239dfa32eb"
+      },
+      "selected_tags.csv": {
+        "size": 308468,
+        "sha256": "298633d94d0031d2081c0893f29c82eab7f0df00b08483ba8f29d1e979441217"
+      }
+    },
+    "all_model_files": [
+      "config.json",
+      "model.onnx",
+      "selected_tags.csv",
+      "sw_jax_cv_config.json"
+    ]
+  },
+  "wd-eva02-large-tagger-v3": {
+    "repo_id": "SmilingWolf/wd-eva02-large-tagger-v3",
+    "revision": "b25b82a03f7282e41aa2f257a52c7583b710bd1c",
+    "files": {
+      "model.onnx": {
+        "size": 1260435999,
+        "sha256": "9e768793060c7939b277ccb382783e8670e8a042d29d77aa736be0c8cc898bfc"
+      },
+      "selected_tags.csv": {
+        "size": 308468,
+        "sha256": "298633d94d0031d2081c0893f29c82eab7f0df00b08483ba8f29d1e979441217"
+      }
+    },
+    "all_model_files": [
+      "config.json",
+      "model.onnx",
+      "selected_tags.csv",
+      "sw_jax_cv_config.json"
+    ]
+  },
+  "z3d-e621-convnext-toynya": {
+    "repo_id": "toynya/Z3D-E621-Convnext",
+    "revision": "39b081cafc120253513e6e9c21283892c6994e62",
+    "files": {
+      "model.onnx": {
+        "size": 389761129,
+        "sha256": "672f6c1b987abfdb311c41ecd57efdc0e5b1860944a3722984326316f4655c70"
+      },
+      "tags-selected.csv": {
+        "size": 243229,
+        "sha256": "609c75136b90fc0a87cce111961f172d029ab400299cfa8bbf6830918305aa40"
+      }
+    },
+    "all_model_files": [
+      "model.onnx",
+      "tags-selected.csv"
+    ]
+  },
+  "camie-tagger-v2": {
+    "repo_id": "Camais03/camie-tagger-v2",
+    "revision": "7d40c1b85b86ab4f607b2caf26b1b50c99db743e",
+    "files": {
+      "camie-tagger-v2-metadata.json": {
+        "size": 7771946,
+        "sha256": "de9f962eb0fd86b7e30d0af4e8c7990205200d70e955d8ecae60f87d14eae66b"
+      },
+      "camie-tagger-v2.onnx": {
+        "size": 788983561,
+        "sha256": "ab0aaf253e3d546090001bec9bebc776c354ab6800f442ab9167af87b4a953ac"
+      }
+    },
+    "all_model_files": [
+      "camie-tagger-v2-metadata.json",
+      "camie-tagger-v2.onnx",
+      "config.json",
+      "full_validation_results.json",
+      "game/data/tag_rarity_metadata.json",
+      "game/series_groups.json",
+      "training/val_dataset.csv"
+    ]
+  }
+}
