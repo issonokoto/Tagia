@@ -92,48 +92,52 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## Community “What’s new” (paste-ready) — v1.4.1
+## Community “What’s new” (paste-ready) — v1.4.2
 
 ### English
 
 ```
-v1.4.1 — Uninstall safety and marketplace assets (Community re-review)
+v1.4.2 — Supply-chain locks and Python disclosure (Community re-review)
 
-- Uninstall removes only the Tagia-owned engine directory (ownership marker + recorded path).
-- Removed Hugging Face model-cache deletion; shared ~/.cache/huggingface is never scanned or deleted.
-- Store listing text updated in all locales to match this uninstall scope.
-- Marketplace covers simplified for card readability (name, short tagline, three chips).
+- Full recursive pip lock with wheel SHA-256; install uses pip --require-hashes (no free pip upgrade).
+- Engine source for the fixed commit is bundled in the package (vendor/) for review.
+- winget installs only Python.Python.3.10 version 3.10.11 from source winget (or verified python.org installer).
+- Models use pinned Hugging Face revisions and file SHA-256 (models-pinned.json).
+- Listing states Windows setup may install Python and that uninstalling Tagia does not remove that Python.
 ```
 
 ### 日本語
 
 ```
-v1.4.1 — アンインストール安全性とカバー画像（Community 再審査対応）
+v1.4.2 — サプライチェーン固定と Python 開示（Community 再審査）
 
-- アンインストールは Tagia 所有のエンジンフォルダのみ削除（所有マーカー＋記録パス）。
-- Hugging Face モデルキャッシュ削除機能を削除。共有の ~/.cache/huggingface は走査・削除しません。
-- 申請文を全言語でこの削除範囲に合わせて更新。
-- マーケットプレイス用カバーを簡素化（名前・短い一文・チップ3つ）。
+- 推移依存すべてを wheel SHA-256 でロックし pip --require-hashes で導入（無制限の pip upgrade なし）。
+- 固定 commit のエンジンソース全文をパッケージに同梱（vendor/）。
+- winget は Python.Python.3.10 の正確な 3.10.11（source winget）のみ（または検証済み公式インストーラ）。
+- モデルは HF の固定 revision とファイル SHA-256（models-pinned.json）。
+- 申請文に「Windows では Python を導入しうる／Tagia 削除後も Python は残る」を明記。
 ```
 
 ### 简体中文
 
 ```
-v1.4.1 — 卸载安全与商店封面（Community 复审）
+v1.4.2 — 供应链锁定与 Python 说明（Community 复审）
 
-- 卸载仅删除 Tagia 拥有的引擎目录（所有权标记 + 记录路径）。
-- 已移除 Hugging Face 模型缓存删除；不会扫描或删除共享的 ~/.cache/huggingface。
-- 各语言上架文案已与卸载范围一致。
-- 商店封面简化（名称、一句说明、三个标签）。
+- 全量递归依赖 wheel SHA-256 锁定，使用 pip --require-hashes（无自由 pip upgrade）。
+- 固定 commit 的完整引擎源码随包提供（vendor/）。
+- winget 仅安装 Python.Python.3.10 精确版本 3.10.11（源 winget），或经验证的官方安装包。
+- 模型使用固定 Hugging Face revision 与文件 SHA-256。
+- 上架文案说明：Windows 可能安装 Python，卸载 Tagia 不会删除该 Python。
 ```
 
 ### 繁體中文
 
 ```
-v1.4.1 — 解除安裝安全性與商店封面（Community 複審）
+v1.4.2 — 供應鏈鎖定與 Python 說明（Community 複審）
 
-- 解除安裝僅刪除 Tagia 擁有的引擎目錄（擁有權標記 + 記錄路徑）。
-- 已移除 Hugging Face 模型快取刪除；不會掃描或刪除共享的 ~/.cache/huggingface。
-- 各語言上架文案已與解除安裝範圍一致。
-- 商店封面簡化（名稱、一句說明、三個標籤）。
+- 全量遞迴相依 wheel SHA-256 鎖定，使用 pip --require-hashes（無自由 pip upgrade）。
+- 固定 commit 的完整引擎原始碼隨套件提供（vendor/）。
+- winget 僅安裝 Python.Python.3.10 精確版本 3.10.11（來源 winget），或經驗證的官方安裝程式。
+- 模型使用固定 Hugging Face revision 與檔案 SHA-256。
+- 上架文案說明：Windows 可能安裝 Python，解除安裝 Tagia 不會刪除該 Python。
 ```
