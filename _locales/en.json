@@ -91,7 +91,8 @@
     "eva02": "EVA02 Large v3 — best quality, heavy",
     "z3d": "Z3D / e621 — furry / anthro",
     "camie": "Camie v2 — alternate tagger",
-    "legacy": "{{key}} (legacy setting)"
+    "legacy": "{{key}} (legacy setting)",
+    "migratedLegacy": "Model \"{{from}}\" is no longer supported (unpinned). Switched to \"{{to}}\"."
   },
   "settings": {
     "language": "Language",
@@ -114,7 +115,7 @@
   },
   "install": {
     "setup": "Panel setup",
-    "setupHint": "Detect/install Python if needed (Windows may install Python 3.10.11; it stays after Tagia uninstall), copy bundled engine source, create venv, install hash-locked packages (--require-hashes). Internet needed for packages and first model download.",
+    "setupHint": "Full setup: Windows x86_64 + CPython 3.10 only. May install Python 3.10.11 on Windows (kept after uninstall). Bundled engine + hash-locked packages (--require-hashes). Internet for packages and first model download.",
     "step1Title": "Python detect / auto-install",
     "step1Desc": "If missing (Windows): winget Python.Python.3.10 v3.10.11 (source winget) or official installer (SHA-256 + Authenticode). Not removed on Tagia uninstall.",
     "step2Title": "Engine files",

@@ -34,13 +34,38 @@ def font_en(size: int, bold: bool = False) -> ImageFont.ImageFont:
 
 
 def font_cjk(size: int, bold: bool = False) -> ImageFont.ImageFont:
+    """Japanese-first CJK stack (Yu Gothic / Meiryo)."""
     return load_font(
         [
             r"C:\Windows\Fonts\YuGothB.ttc" if bold else r"C:\Windows\Fonts\YuGothM.ttc",
             r"C:\Windows\Fonts\meiryob.ttc" if bold else r"C:\Windows\Fonts\meiryo.ttc",
             r"C:\Windows\Fonts\msyhbd.ttc" if bold else r"C:\Windows\Fonts\msyh.ttc",
             r"C:\Windows\Fonts\msjhbd.ttc" if bold else r"C:\Windows\Fonts\msjh.ttc",
-            r"C:\Windows\Fonts\segoeuib.ttf" if bold else r"C:\Windows\Fonts\segoeui.ttf",
+        ],
+        size,
+    )
+
+
+def font_sc(size: int, bold: bool = False) -> ImageFont.ImageFont:
+    """Simplified Chinese — Microsoft YaHei / SimSun (must cover 标签 etc.)."""
+    return load_font(
+        [
+            r"C:\Windows\Fonts\msyhbd.ttc" if bold else r"C:\Windows\Fonts\msyh.ttc",
+            r"C:\Windows\Fonts\simsun.ttc",
+            r"C:\Windows\Fonts\simhei.ttf",
+            r"C:\Windows\Fonts\msjhbd.ttc" if bold else r"C:\Windows\Fonts\msjh.ttc",
+        ],
+        size,
+    )
+
+
+def font_tc(size: int, bold: bool = False) -> ImageFont.ImageFont:
+    """Traditional Chinese — Microsoft JhengHei."""
+    return load_font(
+        [
+            r"C:\Windows\Fonts\msjhbd.ttc" if bold else r"C:\Windows\Fonts\msjh.ttc",
+            r"C:\Windows\Fonts\msyhbd.ttc" if bold else r"C:\Windows\Fonts\msyh.ttc",
+            r"C:\Windows\Fonts\simsun.ttc",
         ],
         size,
     )
@@ -76,17 +101,17 @@ def main() -> None:
             "title": "Tagia",
             "tagline": "本地 AI 批量打标签",
             "chips": ["本地", "批量", "GPU"],
-            "f_title": font_cjk(96, True),
-            "f_tag": font_cjk(42, False),
-            "f_chip": font_cjk(28, True),
+            "f_title": font_sc(96, True),
+            "f_tag": font_sc(42, False),
+            "f_chip": font_sc(28, True),
         },
         "featured-tagia-zh-tw.png": {
             "title": "Tagia",
             "tagline": "本機 AI 批次標籤",
             "chips": ["本機", "批次", "GPU"],
-            "f_title": font_cjk(96, True),
-            "f_tag": font_cjk(42, False),
-            "f_chip": font_cjk(28, True),
+            "f_title": font_tc(96, True),
+            "f_tag": font_tc(42, False),
+            "f_chip": font_tc(28, True),
         },
     }
 

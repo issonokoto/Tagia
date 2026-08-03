@@ -91,7 +91,8 @@
     "eva02": "EVA02 Large v3 (최고 품질·무거움)",
     "z3d": "Z3D / e621 (퍼리·수인)",
     "camie": "Camie v2 (다른 태그 체계)",
-    "legacy": "{{key}} (이전 설정)"
+    "legacy": "{{key}} (이전 설정)",
+    "migratedLegacy": "모델 \"{{from}}\"은 더 이상 지원되지 않습니다(미고정). \"{{to}}\"(으)로 전환했습니다."
   },
   "settings": {
     "language": "언어",

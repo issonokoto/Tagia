@@ -21,7 +21,7 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.2';
+  const PLUGIN_VERSION = '1.4.3';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
 
   /**
@@ -385,16 +385,26 @@
   }
 
   /**
-   * Only show curated models (clear differences).
-   * If user previously saved an unlisted model, keep it as one extra option.
-   * Worker full list is ignored for UI to avoid clutter.
+   * Only show pinned/curated models (must match models-pinned.json allowlist).
+   * Legacy unpinned selections are migrated to DEFAULT_MODEL — never kept in the UI.
    */
+  let legacyModelNotified = false;
   function fillModels(_ignoredList, selected) {
     const sel = $('modelSelect');
     if (!sel) return;
     let cur = selected || sel.value || DEFAULT_MODEL;
-    // migrate old default to new recommended
-    if (cur === 'wd14-convnextv2.v1') cur = DEFAULT_MODEL;
+    let migratedFrom = null;
+
+    // migrate known renames
+    if (cur === 'wd14-convnextv2.v1') {
+      migratedFrom = cur;
+      cur = DEFAULT_MODEL;
+    }
+    // drop any unpinned / legacy model key
+    if (cur && !CURATED_KEYS.has(cur)) {
+      migratedFrom = cur;
+      cur = DEFAULT_MODEL;
+    }
 
     sel.innerHTML = '';
     for (const m of CURATED_MODELS) {
@@ -404,16 +414,30 @@
       if (m.key === cur) opt.selected = true;
       sel.appendChild(opt);
     }
-    // keep legacy selection visible so existing config still works
-    if (cur && !CURATED_KEYS.has(cur)) {
-      const opt = document.createElement('option');
-      opt.value = cur;
-      opt.textContent = t('models.legacy', { key: cur });
-      opt.selected = true;
-      sel.appendChild(opt);
-    }
     if (!sel.value && CURATED_MODELS.length) {
       sel.value = DEFAULT_MODEL;
+      cur = DEFAULT_MODEL;
+    }
+
+    if (migratedFrom && !legacyModelNotified) {
+      legacyModelNotified = true;
+      try {
+        const msg = t('models.migratedLegacy', { from: migratedFrom, to: cur });
+        logMain(msg, 'warn');
+        // persist migrated model into config
+        const cfg = readUiConfig();
+        cfg.model = cur;
+        saveConfig(cfg);
+        if (typeof eagle !== 'undefined' && eagle.notification) {
+          eagle.notification.show({
+            title: t('app.title'),
+            body: msg,
+            duration: 6000,
+          });
+        }
+      } catch (e) {
+        try { console.warn('legacy model migrate notify failed', e); } catch {}
+      }
     }
   }
 

@@ -91,7 +91,8 @@
     "eva02": "EVA02 Large v3（最高精度・重い）",
     "z3d": "Z3D / e621（ケモノ・獣人向け）",
     "camie": "Camie v2（別系統タグger）",
-    "legacy": "{{key}}（旧設定）"
+    "legacy": "{{key}}（旧設定）",
+    "migratedLegacy": "モデル「{{from}}」は非対応（未ピン留め）のため「{{to}}」に切り替えました。"
   },
   "settings": {
     "language": "言語",
@@ -114,7 +115,7 @@
   },
   "install": {
     "setup": "パネルからセットアップ",
-    "setupHint": "Python 検出（Windows では不足時に 3.10.11 を導入することがあり、Tagia 削除後も Python は残ります）、同梱エンジンのコピー、venv、ハッシュ固定依存（--require-hashes）。初回はパッケージとモデル取得にネットが必要です。",
+    "setupHint": "完全セットアップ対応は Windows x86_64 + CPython 3.10 のみ。不足時は Python 3.10.11 を導入（Tagia 削除後も残る）。同梱エンジン＋ハッシュ固定依存。初回はネットが必要です。",
     "step1Title": "Python 検出 / 自動インストール",
     "step1Desc": "無ければ winget（Python.Python.3.10 / 3.10.11 / source winget）または公式インストーラ（SHA-256・Authenticode）。Tagia 削除では Python は消しません。",
     "step2Title": "エンジン配置",

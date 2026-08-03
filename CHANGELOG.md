@@ -7,6 +7,25 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.3] — 2026-08-01
+
+### Security
+
+- **Strict model allowlist:** Worker loads/downloads only models fully defined in `models-pinned.json` (repo_id + revision + every required file SHA-256). Unpinned HF downloads are blocked (no default-branch fallback).
+- Engine interrogators are filtered to the pin allowlist; unlisted engine models cannot be selected via the worker.
+- **UI:** Legacy unpinned model settings are no longer kept in the menu; they migrate to the default pinned model with a user notification.
+
+### Changed
+
+- Store listing (en / ja / zh_CN / zh_TW) states clearly that full setup is **Windows x86_64 + CPython 3.10 only**.
+- Regenerated Simplified Chinese cover with Microsoft YaHei so “标签” renders correctly.
+
+### Fixed
+
+- Eagle Community re-review: legacy model pin bypass, platform disclosure, zh-CN cover missing glyphs.
+
+---
+
 ## [1.4.2] — 2026-08-01
 
 ### Security
@@ -92,52 +111,44 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## Community “What’s new” (paste-ready) — v1.4.2
+## Community “What’s new” (paste-ready) — v1.4.3
 
 ### English
 
 ```
-v1.4.2 — Supply-chain locks and Python disclosure (Community re-review)
+v1.4.3 — Strict model pins, platform disclosure, zh-CN cover fix
 
-- Full recursive pip lock with wheel SHA-256; install uses pip --require-hashes (no free pip upgrade).
-- Engine source for the fixed commit is bundled in the package (vendor/) for review.
-- winget installs only Python.Python.3.10 version 3.10.11 from source winget (or verified python.org installer).
-- Models use pinned Hugging Face revisions and file SHA-256 (models-pinned.json).
-- Listing states Windows setup may install Python and that uninstalling Tagia does not remove that Python.
+- Only models fully pinned in models-pinned.json can be downloaded or loaded; unpinned legacy models are blocked and migrated in the UI.
+- Store listing states full setup is Windows x86_64 + CPython 3.10 only.
+- Simplified Chinese cover re-exported so “标签” displays correctly.
 ```
 
 ### 日本語
 
 ```
-v1.4.2 — サプライチェーン固定と Python 開示（Community 再審査）
+v1.4.3 — モデル厳格固定、対応環境の明示、簡体字カバー修正
 
-- 推移依存すべてを wheel SHA-256 でロックし pip --require-hashes で導入（無制限の pip upgrade なし）。
-- 固定 commit のエンジンソース全文をパッケージに同梱（vendor/）。
-- winget は Python.Python.3.10 の正確な 3.10.11（source winget）のみ（または検証済み公式インストーラ）。
-- モデルは HF の固定 revision とファイル SHA-256（models-pinned.json）。
-- 申請文に「Windows では Python を導入しうる／Tagia 削除後も Python は残る」を明記。
+- models-pinned.json に完全定義されたモデルのみダウンロード／読込。未ピン留めの旧設定は UI で移行。
+- 申請文に「完全セットアップは Windows x86_64 + CPython 3.10 のみ」と明記。
+- 簡体字カバーの「标签」欠字を修正。
 ```
 
 ### 简体中文
 
 ```
-v1.4.2 — 供应链锁定与 Python 说明（Community 复审）
+v1.4.3 — 严格模型固定、平台说明、简体封面修正
 
-- 全量递归依赖 wheel SHA-256 锁定，使用 pip --require-hashes（无自由 pip upgrade）。
-- 固定 commit 的完整引擎源码随包提供（vendor/）。
-- winget 仅安装 Python.Python.3.10 精确版本 3.10.11（源 winget），或经验证的官方安装包。
-- 模型使用固定 Hugging Face revision 与文件 SHA-256。
-- 上架文案说明：Windows 可能安装 Python，卸载 Tagia 不会删除该 Python。
+- 仅允许 models-pinned.json 完整固定的模型下载与加载；未固定旧设置会在界面迁移。
+- 上架文案明确：完整安装仅支持 Windows x86_64 + CPython 3.10。
+- 简体封面“标签”缺字已修复。
 ```
 
 ### 繁體中文
 
 ```
-v1.4.2 — 供應鏈鎖定與 Python 說明（Community 複審）
+v1.4.3 — 嚴格模型固定、平台說明、簡中封面修正
 
-- 全量遞迴相依 wheel SHA-256 鎖定，使用 pip --require-hashes（無自由 pip upgrade）。
-- 固定 commit 的完整引擎原始碼隨套件提供（vendor/）。
-- winget 僅安裝 Python.Python.3.10 精確版本 3.10.11（來源 winget），或經驗證的官方安裝程式。
-- 模型使用固定 Hugging Face revision 與檔案 SHA-256。
-- 上架文案說明：Windows 可能安裝 Python，解除安裝 Tagia 不會刪除該 Python。
+- 僅允許 models-pinned.json 完整固定的模型下載與載入；未固定舊設定會在介面遷移。
+- 上架文案明確：完整安裝僅支援 Windows x86_64 + CPython 3.10。
+- 簡體封面「标签」缺字已修復。
 ```

@@ -91,7 +91,8 @@
     "eva02": "EVA02 Large v3（最高精度·較重）",
     "z3d": "Z3D / e621（獸設向）",
     "camie": "Camie v2（另一套標籤體系）",
-    "legacy": "{{key}}（舊設定）"
+    "legacy": "{{key}}（舊設定）",
+    "migratedLegacy": "模型「{{from}}」已不受支援（未固定），已切換為「{{to}}」。"
   },
   "settings": {
     "language": "語言",
@@ -114,7 +115,7 @@
   },
   "install": {
     "setup": "面板安裝",
-    "setupHint": "偵測/必要時安裝 Python（Windows 可能安裝 3.10.11，解除安裝 Tagia 後 Python 仍保留）、複製內附引擎、建立 venv、以雜湊鎖安裝相依。首次安裝與模型下載需要網路。",
+    "setupHint": "完整安裝僅支援 Windows x86_64 + CPython 3.10。必要時可安裝 Python 3.10.11（解除安裝 Tagia 後仍保留）。內附引擎 + 雜湊鎖定相依。首次需網路。",
     "step1Title": "Python 偵測 / 自動安裝",
     "step1Desc": "缺少時（Windows）：winget Python.Python.3.10 精確 3.10.11（來源 winget）或官方安裝程式（SHA-256 + Authenticode）。解除安裝 Tagia 不刪除 Python。",
     "step2Title": "引擎檔案",

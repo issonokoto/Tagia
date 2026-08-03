@@ -91,7 +91,8 @@
     "eva02": "EVA02 Large v3（最高精度·较重）",
     "z3d": "Z3D / e621（兽设向）",
     "camie": "Camie v2（另一套标签体系）",
-    "legacy": "{{key}}（旧设置）"
+    "legacy": "{{key}}（旧设置）",
+    "migratedLegacy": "模型“{{from}}”已不受支持（未固定），已切换为“{{to}}”。"
   },
   "settings": {
     "language": "语言",
@@ -114,7 +115,7 @@
   },
   "install": {
     "setup": "面板安装",
-    "setupHint": "检测/必要时安装 Python（Windows 可能安装 3.10.11，卸载 Tagia 后 Python 仍保留）、复制内附引擎、创建 venv、以哈希锁安装依赖。首次安装与模型下载需要网络。",
+    "setupHint": "完整安装仅支持 Windows x86_64 + CPython 3.10。必要时可安装 Python 3.10.11（卸载 Tagia 后仍保留）。内附引擎 + 哈希锁定依赖。首次需网络。",
     "step1Title": "Python 检测 / 自动安装",
     "step1Desc": "缺失时（Windows）：winget Python.Python.3.10 精确 3.10.11（源 winget）或官方安装包（SHA-256 + Authenticode）。卸载 Tagia 不删除 Python。",
     "step2Title": "引擎文件",

@@ -100,16 +100,54 @@ def _verify_file_hash(path: Path, expected: str | None, label: str) -> None:
     log(f"SHA-256 OK: {label} ({got[:16]}…)")
 
 
+_PINS_READY = False
+
+
+def _validate_pin_entry(model_key: str, pin: dict[str, Any]) -> None:
+    """Raise if pin is incomplete (repo, revision, every required file sha256)."""
+    if not pin.get("repo_id"):
+        raise RuntimeError(f"MODEL_PIN_INCOMPLETE: {model_key} missing repo_id")
+    if not pin.get("revision"):
+        raise RuntimeError(f"MODEL_PIN_INCOMPLETE: {model_key} missing revision")
+    files = pin.get("files") or {}
+    if not files:
+        raise RuntimeError(f"MODEL_PIN_INCOMPLETE: {model_key} has no files")
+    for fn, meta in files.items():
+        if not isinstance(meta, dict) or not meta.get("sha256"):
+            raise RuntimeError(
+                f"MODEL_PIN_INCOMPLETE: {model_key} file {fn} missing sha256"
+            )
+
+
+def _assert_model_fully_pinned(model_key: str) -> dict[str, Any]:
+    if not _PINS_READY or not _MODEL_PINS:
+        raise RuntimeError(
+            "MODEL_PINS_UNAVAILABLE: models-pinned.json failed to load or is empty. "
+            "Refusing to download unpinned models."
+        )
+    pin = _MODEL_PINS.get(model_key)
+    if not pin:
+        raise RuntimeError(
+            f"MODEL_NOT_PINNED: '{model_key}' is not in the allowlist. "
+            f"Allowed: {sorted(_MODEL_PINS.keys())}"
+        )
+    _validate_pin_entry(model_key, pin)
+    return pin
+
+
 def _patch_downloads_with_pins() -> None:
     """
     Force Hugging Face downloads to use pinned revision + verify SHA-256.
-    Destination: default HF hub cache (~/.cache/huggingface/hub).
+    Unlisted repos/files are rejected (no default-branch downloads).
     """
-    global _MODEL_PINS
+    global _MODEL_PINS, _PINS_READY
     _MODEL_PINS = _load_model_pins()
     if not _MODEL_PINS:
-        log("WARNING: models-pinned.json not found; model revision/hash pins disabled")
-        return
+        _PINS_READY = False
+        raise RuntimeError("models-pinned.json not found or empty")
+
+    for key, pin in _MODEL_PINS.items():
+        _validate_pin_entry(key, pin)
 
     from huggingface_hub import hf_hub_download as _orig_hf_hub_download  # noqa: WPS433
 
@@ -127,27 +165,42 @@ def _patch_downloads_with_pins() -> None:
                 pin_key = key
                 break
 
-        if pin_entry:
-            rev = pin_entry.get("revision")
-            if rev:
-                kwargs["revision"] = rev
-            log(
-                f"HF download pinned: repo={repo_id} file={filename} "
-                f"rev={(rev or '')[:12]} model={pin_key}"
+        if not pin_entry:
+            raise RuntimeError(
+                f"UNPINNED_HF_DOWNLOAD_BLOCKED: repo_id={repo_id} file={filename}. "
+                "Only models listed in models-pinned.json may be downloaded."
             )
+
+        rev = pin_entry.get("revision")
+        if not rev:
+            raise RuntimeError(f"MODEL_PIN_INCOMPLETE: {pin_key} missing revision")
+        kwargs["revision"] = rev
+
+        files = pin_entry.get("files") or {}
+        if filename and filename not in files:
+            raise RuntimeError(
+                f"UNPINNED_FILE_BLOCKED: {repo_id}/{filename} is not in the pin "
+                f"file list for {pin_key}"
+            )
+        if filename:
+            expected = (files.get(filename) or {}).get("sha256")
+            if not expected:
+                raise RuntimeError(
+                    f"MODEL_PIN_INCOMPLETE: {pin_key}/{filename} missing sha256"
+                )
+
+        log(
+            f"HF download pinned: repo={repo_id} file={filename} "
+            f"rev={rev[:12]} model={pin_key}"
+        )
 
         path = _orig_hf_hub_download(*args, **kwargs)
         p = Path(path)
-
-        if pin_entry and filename:
-            files = pin_entry.get("files") or {}
-            meta = files.get(filename) or {}
-            expected = meta.get("sha256")
+        if filename:
+            expected = (files.get(filename) or {}).get("sha256")
             _verify_file_hash(p, expected, f"{repo_id}/{filename}")
-
         return path
 
-    # Monkey-patch modules that imported hf_hub_download by name
     import huggingface_hub as _hh  # noqa: WPS433
 
     _hh.hf_hub_download = pinned_hf_hub_download  # type: ignore[attr-defined]
@@ -164,11 +217,12 @@ def _patch_downloads_with_pins() -> None:
         except Exception as e:
             log(f"pin patch skip {mod_name}: {e}")
 
-    log(f"Model pins active for {len(_MODEL_PINS)} curated model(s)")
+    _PINS_READY = True
+    log(f"Model pins active (strict) for {len(_MODEL_PINS)} model(s)")
 
 
 def setup_tagger_root(root: Path) -> None:
-    global TAGGER_ROOT, _interrogators, _AbsInterrogator, _Image, _ImageFile
+    global TAGGER_ROOT, _interrogators, _AbsInterrogator, _Image, _ImageFile, _PINS_READY
     TAGGER_ROOT = root.resolve()
     if str(TAGGER_ROOT) not in sys.path:
         sys.path.insert(0, str(TAGGER_ROOT))
@@ -181,13 +235,22 @@ def setup_tagger_root(root: Path) -> None:
     _Image = Image
     _ImageFile = ImageFile
     _AbsInterrogator = AbsInterrogator
-    _interrogators = interrogators
 
+    # Strict pin init — hard fail (no silent unpinned downloads)
     try:
         _patch_downloads_with_pins()
     except Exception as e:
-        log(f"Model pin setup failed: {e}")
+        _PINS_READY = False
+        log(f"Model pin setup FAILED: {e}")
         traceback.print_exc(file=sys.stderr)
+        raise RuntimeError(f"MODEL_PINS_INIT_FAILED: {e}") from e
+
+    # Expose only allowlisted interrogators (engine may define many more)
+    _interrogators = {
+        k: v for k, v in interrogators.items() if k in _MODEL_PINS
+    }
+    if not _interrogators:
+        raise RuntimeError("No allowlisted interrogators after pin filter")
 
 
 def list_models() -> list[str]:
@@ -267,9 +330,13 @@ def load_model(model_key: str, device: str = "auto") -> None:
     if _interrogators is None or _AbsInterrogator is None:
         raise RuntimeError("Tagger root not initialized")
 
+    # Only fully pinned models (repo + revision + every file sha256)
+    _assert_model_fully_pinned(model_key)
+
     if model_key not in _interrogators:
         raise RuntimeError(
-            f"Unknown model: {model_key}. Available: {list(_interrogators.keys())}"
+            f"Unknown or disallowed model: {model_key}. "
+            f"Allowed: {list(_interrogators.keys())}"
         )
 
     # Reload if model/device changed
@@ -288,13 +355,11 @@ def load_model(model_key: str, device: str = "auto") -> None:
     if device == "cpu":
         inter.use_cpu()
 
-    # Force load now (downloads model if needed)
+    # Force load now (downloads model if needed — always pinned path)
     log(f"Loading model={model_key} device={device} providers={providers}")
-    # Open a 1x1 image path is not needed — call load() if available
     if hasattr(inter, "load"):
         inter.load()
     else:
-        # fallback: interrogate dummy
         img = _Image.new("RGB", (64, 64), (128, 128, 128))
         inter.interrogate(img)
 
