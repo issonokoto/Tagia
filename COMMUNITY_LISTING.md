@@ -1,4 +1,4 @@
-# Tagia — Eagle Community listing copy (v1.4.3)
+# Tagia — Eagle Community listing copy (v1.4.4)
 
 **Supported platform for full setup & core workflow:**  
 **Windows x86_64 only · CPython 3.10 only**  

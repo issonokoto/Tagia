@@ -1,8 +1,8 @@
 {
     "id": "c30c0fd0-df7a-4792-af3d-cf24674eba45",
-    "version": "1.4.3",
-    "platform": "all",
-    "arch": "all",
+    "version": "1.4.4",
+    "platform": "win",
+    "arch": "x64",
     "name": "{{manifest.app.name}}",
     "logo": "/logo.png",
     "keywords": ["tagia", "tagger", "ai", "tag", "anime", "booru", "local", "gpu"],

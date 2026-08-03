@@ -1,4 +1,4 @@
-# Tagia security & supply-chain notes (v1.4.2)
+# Tagia security & supply-chain notes (v1.4.4)
 
 ## Engine (bundled)
 
@@ -41,7 +41,8 @@ Pins are in `python/models-pinned.json`:
 | z3d-e621-convnext-toynya | toynya/Z3D-E621-Convnext | see JSON |
 | camie-tagger-v2 | Camais03/camie-tagger-v2 | see JSON |
 
-Each listed model file has a documented SHA-256. The worker downloads with that **revision** and verifies hashes after download.
+Each listed model file has a documented SHA-256. The worker downloads with that **revision** and verifies hashes after download.  
+**Unlisted models (including engine-defined keys not in this JSON) cannot be loaded or downloaded.** Legacy UI settings migrate to a pinned default.
 
 ### Data transmitted
 

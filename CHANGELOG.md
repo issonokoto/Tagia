@@ -7,6 +7,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.4] — 2026-08-01
+
+### Security / proactive hardening
+
+- **Platform gate:** Install and GPU switch require **Windows x64**; clear error if not.
+- **Install consent dialog** before setup (engine/venv, PyPI, optional system Python, HF models; images stay local).
+- **Python 3.10 check:** Prefers / auto-installs CPython **3.10.x** for hash-locked wheels; confirms before auto-install.
+- **manifest:** `platform: win`, `arch: x64` (matches listing).
+- Added `REVIEW_NOTES.md` (for Eagle reviewers) and `PRE_SUBMIT_CHECKLIST.md` (author).
+
+### Fixed
+
+- Align code, manifest, and listing so platform claims cannot be misread as multi-OS.
+
+---
+
 ## [1.4.3] — 2026-08-01
 
 ### Security
@@ -111,44 +127,44 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## Community “What’s new” (paste-ready) — v1.4.3
+## Community “What’s new” (paste-ready) — v1.4.4
 
 ### English
 
 ```
-v1.4.3 — Strict model pins, platform disclosure, zh-CN cover fix
+v1.4.4 — Platform gate and install consent (proactive review hardening)
 
-- Only models fully pinned in models-pinned.json can be downloaded or loaded; unpinned legacy models are blocked and migrated in the UI.
-- Store listing states full setup is Windows x86_64 + CPython 3.10 only.
-- Simplified Chinese cover re-exported so “标签” displays correctly.
+- Full setup gated to Windows x64 + CPython 3.10; manifest platform/arch match.
+- Install shows an explicit consent dialog (system Python may remain; HF model download on first use; images stay local).
+- Reviewer notes and pre-submit checklist added for supply-chain clarity.
 ```
 
 ### 日本語
 
 ```
-v1.4.3 — モデル厳格固定、対応環境の明示、簡体字カバー修正
+v1.4.4 — 対応環境の強制とインストール同意（審査先回り）
 
-- models-pinned.json に完全定義されたモデルのみダウンロード／読込。未ピン留めの旧設定は UI で移行。
-- 申請文に「完全セットアップは Windows x86_64 + CPython 3.10 のみ」と明記。
-- 簡体字カバーの「标签」欠字を修正。
+- 完全セットアップを Windows x64 + CPython 3.10 に限定（manifest も一致）。
+- インストール前に影響説明ダイアログ（Python 残存、初回 HF モデル取得、画像はローカル）。
+- 審査者向けノートと提出前チェックリストを追加。
 ```
 
 ### 简体中文
 
 ```
-v1.4.3 — 严格模型固定、平台说明、简体封面修正
+v1.4.4 — 平台限制与安装确认（主动对齐审核）
 
-- 仅允许 models-pinned.json 完整固定的模型下载与加载；未固定旧设置会在界面迁移。
-- 上架文案明确：完整安装仅支持 Windows x86_64 + CPython 3.10。
-- 简体封面“标签”缺字已修复。
+- 完整安装限定 Windows x64 + CPython 3.10，manifest 与文案一致。
+- 安装前明确确认（可能保留系统 Python、首次从 HF 下载模型、图像留在本机）。
+- 增加审核说明与提交前检查清单。
 ```
 
 ### 繁體中文
 
 ```
-v1.4.3 — 嚴格模型固定、平台說明、簡中封面修正
+v1.4.4 — 平台限制與安裝確認（主動對齊審核）
 
-- 僅允許 models-pinned.json 完整固定的模型下載與載入；未固定舊設定會在介面遷移。
-- 上架文案明確：完整安裝僅支援 Windows x86_64 + CPython 3.10。
-- 簡體封面「标签」缺字已修復。
+- 完整安裝限定 Windows x64 + CPython 3.10，manifest 與文案一致。
+- 安裝前明確確認（可能保留系統 Python、首次自 HF 下載模型、圖像留在本機）。
+- 增加審核說明與提交前檢查清單。
 ```

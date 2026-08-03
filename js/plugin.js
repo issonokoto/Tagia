@@ -21,7 +21,7 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.3';
+  const PLUGIN_VERSION = '1.4.4';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
 
   /**
@@ -1158,13 +1158,18 @@
       }
       fs.mkdirSync(installDir, { recursive: true });
 
+      // Prefer bundled vendor source only (reviewable; no mutable remote by default).
+      // Optional hash-verified ZIP is last-resort if package was stripped of vendor/.
       const bundled = bundledEngineRoot();
       if (isTaggerRoot(bundled)) {
         setBusy('2/3 Engine', 'Copying bundled engine source…');
         log('Using bundled engine source: ' + bundled, 'ok');
         copyDirRecursive(bundled, installDir);
       } else {
-        log('Bundled engine missing; downloading pinned ZIP…', 'warn');
+        log('Bundled engine missing; falling back to pinned ZIP (SHA-256 verified)…', 'warn');
+        if (!isAllowedDownloadUrl(ENGINE_ZIP_URL)) {
+          throw new Error('Engine download URL not allowlisted');
+        }
         await downloadFile(ENGINE_ZIP_URL, zipPath, log);
         await verifyFileSha256(zipPath, ENGINE_ZIP_SHA256, log);
 
@@ -2020,13 +2025,78 @@
     }
   }
 
+  /** Full setup is Windows x86_64 + CPython 3.10 only (matches hash-locked wheels). */
+  function isSupportedPlatform() {
+    if (process.platform !== 'win32') return false;
+    const arch = String(process.arch || '').toLowerCase();
+    return arch === 'x64' || arch === 'ia32'; // ia32 host rare; wheels are win_amd64
+  }
+
+  function isX64Windows() {
+    if (process.platform !== 'win32') return false;
+    // prefer true x64 (native or WoW64)
+    const arch = String(process.arch || '').toLowerCase();
+    if (arch === 'x64') return true;
+    try {
+      if (process.env.PROCESSOR_ARCHITECTURE === 'AMD64') return true;
+      if (process.env.PROCESSOR_ARCHITEW6432 === 'AMD64') return true;
+    } catch {}
+    return false;
+  }
+
+  function pythonLooksLike310(versionLine) {
+    const s = String(versionLine || '');
+    // e.g. Python 3.10.11
+    return /Python\s+3\.10\b/i.test(s) || /\b3\.10\.\d+/.test(s);
+  }
+
+  async function assertSupportedPlatformOrExplain(logFn) {
+    const log = logFn || logInst;
+    if (isX64Windows()) return true;
+    log(t('install.platformUnsupported'), 'err');
+    try {
+      await eagle.dialog.showMessageBox({
+        title: t('app.title'),
+        message: t('install.platformUnsupportedTitle'),
+        detail: t('install.platformUnsupported'),
+        buttons: [t('common.ok')],
+        type: 'warning',
+      });
+    } catch {}
+    return false;
+  }
+
+  async function confirmInstallImpacts() {
+    try {
+      const r = await eagle.dialog.showMessageBox({
+        title: t('install.consentTitle'),
+        message: t('install.consentTitle'),
+        detail: t('install.consentDetail'),
+        buttons: [t('install.consentContinue'), t('common.cancel')],
+        type: 'info',
+      });
+      return r.response === 0;
+    } catch {
+      return true;
+    }
+  }
+
   async function installAll() {
     const cfg = readUiConfig();
     let installDir = cfg.installDir || defaultConfig().installDir;
     $('installDir').value = installDir;
 
+    if (!(await assertSupportedPlatformOrExplain(logInst))) {
+      return;
+    }
+    if (!(await confirmInstallImpacts())) {
+      logInst(t('install.consentCancel'), 'warn');
+      return;
+    }
+
     startBusy('一括インストール', '準備中…');
     logInst('=== 一括インストール開始 ===', 'info');
+    logInst('Platform: Windows x86_64 / CPython 3.10 (supported setup)', 'info');
 
     try {
       // 1) Python: detect → auto-install if missing
@@ -2034,17 +2104,38 @@
       logInst('Python を検索中…', 'info');
       let found = await findWorkingPython(cfg);
 
+      if (found.ok && !pythonLooksLike310(found.version)) {
+        logInst(
+          'Found Python but not 3.10.x: ' + (found.version || found.path) +
+          ' — Tagia requires CPython 3.10 for hash-locked wheels.',
+          'warn'
+        );
+        // Prefer auto-install of exact 3.10.11 when wrong major/minor is present
+        found = { ok: false, error: 'need-python-3.10' };
+      }
+
       if (!found.ok) {
-        logInst('有効な Python が見つかりませんでした', 'warn');
-        if (process.platform === 'win32') {
-          setBusy('1/3 Python', '自動インストール中…');
-          found = await installPythonWindows(logInst);
-        }
+        logInst('有効な Python 3.10 が見つかりませんでした', 'warn');
+        try {
+          const r = await eagle.dialog.showMessageBox({
+            title: t('install.pythonAutoTitle'),
+            message: t('install.pythonAutoTitle'),
+            detail: t('install.pythonAutoDetail'),
+            buttons: [t('install.pythonAutoOk'), t('common.cancel')],
+            type: 'warning',
+          });
+          if (r.response !== 0) {
+            markStep('step-python', false);
+            return;
+          }
+        } catch {}
+        setBusy('1/3 Python', '自動インストール中…');
+        found = await installPythonWindows(logInst);
       }
 
       if (!found.ok) {
         logInst('Python の自動インストールに失敗しました。', 'err');
-        logInst('https://www.python.org/downloads/ から Python 3.10+ を入れ、', 'err');
+        logInst('https://www.python.org/downloads/ から Python 3.10.11 を入れ、', 'err');
         logInst('「Add python.exe to PATH」にチェックを入れて再実行してください。', 'err');
         markStep('step-python', false);
         return;
@@ -2053,6 +2144,9 @@
       const py = found.path;
       logInst('Python: ' + py, 'ok');
       logInst(found.version || '', 'ok');
+      if (!pythonLooksLike310(found.version)) {
+        logInst('Warning: Python version string does not look like 3.10.x', 'warn');
+      }
       markStep('step-python', true);
       $('pythonPath').value = py;
       $('stPython').textContent = py;
@@ -2209,6 +2303,7 @@
 
   async function switchRuntime(mode) {
     // mode: 'gpu' | 'cpu'
+    if (!(await assertSupportedPlatformOrExplain(logInst))) return;
     const cfg = readUiConfig();
     if (!cfg.taggerRoot || !isTaggerRoot(cfg.taggerRoot)) {
       logInst('先に一括インストールを実行してください', 'err');
