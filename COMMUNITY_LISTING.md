@@ -1,11 +1,14 @@
-# Tagia — Eagle Community listing copy (v1.4.4)
+# Tagia — Eagle Community listing copy (v1.4.5)
 
-All four locales below carry the **same disclosures** (platform, network, install side effects, models, uninstall).  
-Paste each block into the matching language tab on the submission form.
+All four locales carry the **same disclosures**.  
+Paste each block into the matching language tab.
 
-**Supported platform for full setup & core workflow:**  
-**Windows x86_64 only · CPython 3.10 only**  
-(macOS / Linux complete setup is not supported in this release.)
+**Plugin Website (all locales):**  
+`https://github.com/issonokoto/Tagia`  
+(Do **not** leave `xxxx`, `https://`, or other placeholders.)
+
+**Supported platform:** Windows x86_64 only · CPython 3.10 only  
+(macOS / Linux one-click setup is not supported.)
 
 ---
 
@@ -17,27 +20,19 @@ Paste each block into the matching language tab on the submission form.
 
 **Introduction:**
 
-Tagia is a local AI batch image-tagging plugin for Eagle. Select images, a model, and CPU, GPU, or Auto device mode to start a batch. It processes the currently selected images, appends or replaces tags, can keep the model loaded between batches, and updates only the Tagia block in the Note field (other note text is preserved).
+Tagia is a local AI batch image-tagging plugin for Eagle. It processes the currently selected images, can append or replace tags, keep the model loaded between consecutive batches, and update only the Tagia block in the Note field while preserving other notes.
 
-**Platform (important)**
+Complete setup and the core workflow require **Windows x86_64 with CPython 3.10**. Dependency install uses a hash-locked wheel set (`requirements-locked-win-amd64.txt`); macOS and Linux are not supported for one-click setup in this release.
 
-- Complete setup and the core tagging workflow are supported only on **Windows x86_64** with **CPython 3.10**.
-- Dependency install always uses the hash-locked file for this platform (`requirements-locked-win-amd64.txt`). **macOS and Linux are not supported** for one-click setup in this release.
+The package ships a fixed engine source snapshot under `vendor/wd14-tagger-standalone` (pinned commit). Install copies it into a Tagia-owned directory. Python packages install with `pip install --require-hashes`. Only models listed in `models-pinned.json` (repository, revision, and every required file SHA-256) can be downloaded or loaded; legacy unpinned settings migrate to a supported model.
 
-**Setup & security**
+**The first time a selected model is used, Tagia downloads fixed-revision model files from Hugging Face Hub, verifies their SHA-256 hashes, and stores them in the shared Hugging Face cache** (`~/.cache/huggingface/hub`). Image inference then runs **locally**; image bytes are not sent to a Tagia cloud API.
 
-- The package ships the full source of a fixed engine snapshot under `vendor/wd14-tagger-standalone` (pinned commit). Install copies that snapshot into a Tagia-owned directory.
-- Python packages are installed with `pip install --require-hashes` from a lock file that pins every recursive dependency and wheel SHA-256. Unconstrained `pip install --upgrade pip` is not used.
-- Only models listed in `models-pinned.json` (repository, revision, and every required file SHA-256) can be downloaded or loaded. Legacy unpinned model settings are migrated to a supported model.
-- **Windows only:** if no working CPython 3.10 is found, Tagia may install **Python 3.10.11** via winget (`Python.Python.3.10`, exact version, source `winget`) or the official python.org installer (HTTPS, SHA-256, Authenticode). **Uninstalling Tagia does not remove that Python installation.**
-- On first use of a model, weights download from Hugging Face Hub at a pinned revision (with hash verification) into the local cache (`~/.cache/huggingface/hub`). Image tagging inference then runs **locally**; image bytes are not sent to a Tagia cloud API.
-- Uninstall removes only the Tagia-owned engine directory (ownership marker + recorded path). It does not delete Hugging Face caches, user-managed engines, or system Python.
+**Windows only:** if no working CPython 3.10 is found, Tagia may install Python **3.10.11** via winget (`Python.Python.3.10`, exact version, source `winget`) or the official python.org installer (HTTPS, SHA-256, Authenticode).
 
-**How to use**
+**Uninstalling Tagia removes only Tagia-owned engine directories** and retains the **shared Hugging Face model cache**, system Python installations (including Python installed during setup), and user-managed engines.
 
-1. Install tab → confirm the impact dialog → Install all (CPU). Optional: GPU package if you have NVIDIA + CUDA.
-2. Select images in Eagle → choose model and options → Tag selected images.
-3. Stop is available during a batch.
+**How to use:** Install tab → confirm impact dialog → Install all (CPU) → select images in Eagle → Tag selected images.
 
 ---
 
@@ -49,27 +44,21 @@ Tagia is a local AI batch image-tagging plugin for Eagle. Select images, a model
 
 **紹介文:**
 
-Tagia は Eagle 向けのローカル AI 一括画像タグ付けプラグインです。画像・モデル・CPU / GPU / Auto を選んでバッチ実行できます。選択中の画像を処理し、タグの追加または置換、連続実行時のモデル常駐、メモ欄の Tagia ブロックのみ更新（他のメモは保持）に対応します。
+Tagia は Eagle 向けのローカル AI 一括画像タグ付けプラグインです。選択中の画像を処理し、タグの追加または置換、連続実行時のモデル常駐、メモ欄の Tagia ブロックのみ更新（他のメモは保持）に対応します。
 
-**対応環境（重要）**
+一式セットアップとコアのタグ付けは **Windows x86_64 + CPython 3.10 のみ** 対応です。依存関係はハッシュ固定（`requirements-locked-win-amd64.txt`）を使います。macOS / Linux のワンクリックセットアップは本リリースでは非対応です。
 
-- 一式セットアップとコアのタグ付けフローは **Windows x86_64 + CPython 3.10 のみ** 対応です。
-- 依存関係は常にこの向けのハッシュ固定ファイル（`requirements-locked-win-amd64.txt`）を使います。**macOS / Linux のワンクリックセットアップは本リリースでは非対応**です。
+固定 commit のエンジンソースを `vendor/wd14-tagger-standalone` に同梱し、インストール時に Tagia 所有フォルダへコピーします。Python 依存は `pip install --require-hashes` で導入します。モデルは `models-pinned.json` に完全定義されたものだけダウンロード／読込できます。
 
-**セットアップとセキュリティ**
+**選択したモデルを初めて使うとき、Tagia は Hugging Face Hub から固定 revision のモデルファイルをダウンロードし、SHA-256 を検証したうえで共有キャッシュ**（`~/.cache/huggingface/hub`）**に保存します。** 以降の画像推論は **ローカル** で行い、画像バイトを Tagia のクラウド API には送りません。
 
-- 固定 commit のエンジンソース全文を `vendor/wd14-tagger-standalone` に同梱します。インストール時に Tagia 所有フォルダへコピーします。
-- Python 依存は、全推移依存と wheel の SHA-256 を含むロックファイルで `pip install --require-hashes` します。無制限の `pip install --upgrade pip` は使いません。
-- ダウンロード／読込できるモデルは `models-pinned.json` に完全定義（リポジトリ・revision・必要ファイルの SHA-256）されたものだけです。未ピン留めの旧設定は対応モデルへ自動移行します。
-- **Windows:** 利用可能な CPython 3.10 が無い場合、winget（`Python.Python.3.10` / 正確なバージョン **3.10.11** / source `winget`）または公式 python.org インストーラ（HTTPS・SHA-256・Authenticode）で Python を導入することがあります。**Tagia をアンインストールしても、この Python は削除されずシステムに残ります。**
-- モデル初回利用時、Hugging Face Hub から固定 revision のファイルを取得し SHA-256 検証のうえ、ローカルキャッシュ（`~/.cache/huggingface/hub`）に保存します。以降のタグ付け推論は **ローカル** で行い、画像バイトを Tagia のクラウド API に送りません。
-- アンインストールは Tagia 所有のエンジンフォルダのみ削除します（所有マーカー＋記録パス）。Hugging Face キャッシュ・ユーザー管理のエンジン・システム Python は削除しません。
+**Windows:** 利用可能な CPython 3.10 が無い場合、winget（`Python.Python.3.10` / **3.10.11** / source `winget`）または公式 python.org インストーラで導入することがあります。
 
-**使い方**
+**Tagia をアンインストールしても、共有 Hugging Face モデルキャッシュ・システム Python（セットアップで入れた Python を含む）・ユーザー管理のエンジンは残ります。** 削除されるのは Tagia 所有のエンジンフォルダのみです。
 
-1. インストールタブ → 影響説明を確認 → 一括インストール (CPU)。必要なら GPU パッケージ（NVIDIA + CUDA）。
-2. Eagle で画像を選択 → モデルとオプションを選ぶ → 選択画像をタグ付け。
-3. バッチ中は停止できます。
+**使い方:** インストール → 影響確認 → 一括インストール (CPU) → Eagle で画像選択 → タグ付け。
+
+**Plugin Website:** `https://github.com/issonokoto/Tagia`
 
 ---
 
@@ -81,27 +70,21 @@ Tagia は Eagle 向けのローカル AI 一括画像タグ付けプラグイン
 
 **简介:**
 
-Tagia 是面向 Eagle 的本地 AI 批量图像打标签插件。选择图像、模型和 CPU / GPU / Auto 设备模式后即可开始批处理。它会处理当前选中的图像，支持追加或替换标签、在连续批次间保持模型加载，以及仅更新备注中的 Tagia 区块（保留其他备注内容）。
+Tagia 是面向 Eagle 的本地 AI 批量图像打标签插件。它会处理当前选中的图像，支持追加或替换标签、在连续批次间保持模型加载，以及仅更新备注中的 Tagia 区块（保留其他备注）。
 
-**平台要求（重要）**
+完整安装与核心流程**仅支持 Windows x86_64 + CPython 3.10**。依赖使用哈希锁定文件（`requirements-locked-win-amd64.txt`）。本版本不支持 macOS / Linux 一键安装。
 
-- 完整安装与核心打标签流程**仅支持 Windows x86_64 + CPython 3.10**。
-- 依赖安装始终使用该平台的哈希锁定文件（`requirements-locked-win-amd64.txt`）。**本版本不支持 macOS / Linux 的一键安装。**
+插件内附固定 commit 引擎源码（`vendor/wd14-tagger-standalone`），安装时复制到 Tagia 拥有的目录。Python 依赖以 `pip install --require-hashes` 安装。仅允许 `models-pinned.json` 完整固定的模型下载与加载。
 
-**安装与安全**
+**首次使用所选模型时，Tagia 会从 Hugging Face Hub 下载固定 revision 的模型文件，校验 SHA-256，并保存到共享缓存**（`~/.cache/huggingface/hub`）。之后的图像推理在**本地**运行，不会将图像字节发送到 Tagia 云端 API。
 
-- 插件内附带固定 commit 的完整引擎源码（`vendor/wd14-tagger-standalone`）。安装时会复制到 Tagia 拥有的目录。
-- Python 依赖通过包含全部递归依赖与 wheel SHA-256 的锁文件，以 `pip install --require-hashes` 安装；不使用无约束的 `pip install --upgrade pip`。
-- 仅允许 `models-pinned.json` 中完整固定（仓库、revision、所需文件 SHA-256）的模型下载与加载；旧的未固定模型设置会迁移到支持的模型。
-- **仅 Windows：** 若未找到可用的 CPython 3.10，Tagia 可能通过 winget（`Python.Python.3.10`、精确版本 **3.10.11**、源 `winget`）或官方 python.org 安装包（HTTPS、SHA-256、Authenticode）安装 Python。**卸载 Tagia 不会删除该 Python 安装。**
-- 首次使用模型时，会从 Hugging Face Hub 按固定 revision 下载文件并校验 SHA-256，保存到本地缓存（`~/.cache/huggingface/hub`）。之后的打标签推理在**本地**完成，不会将图像字节发送到 Tagia 云端 API。
-- 卸载仅删除 Tagia 拥有的引擎目录（所有权标记 + 记录路径）。不会删除 Hugging Face 缓存、用户自备引擎或系统 Python。
+**仅 Windows：** 若无可用 CPython 3.10，可能通过 winget（`Python.Python.3.10`、精确 **3.10.11**、源 `winget`）或官方 python.org 安装包安装 Python。
 
-**使用方法**
+**卸载 Tagia 仅删除 Tagia 拥有的引擎目录，并保留共享 Hugging Face 模型缓存、系统 Python（含安装过程中安装的 Python）以及用户自备引擎。**
 
-1. 打开“安装”页 → 确认影响说明 → 一键安装 (CPU)。如有 NVIDIA + CUDA，可再装 GPU 包。
-2. 在 Eagle 中选择图像 → 选择模型与选项 → 为所选图像打标签。
-3. 批处理过程中可停止。
+**用法:** 安装页 → 确认说明 → 一键安装 (CPU) → 在 Eagle 选图 → 打标签。
+
+**Plugin Website:** `https://github.com/issonokoto/Tagia`
 
 ---
 
@@ -113,24 +96,18 @@ Tagia 是面向 Eagle 的本地 AI 批量图像打标签插件。选择图像、
 
 **簡介:**
 
-Tagia 是面向 Eagle 的本機 AI 批次圖像標籤外掛。選擇圖像、模型與 CPU / GPU / Auto 裝置模式後即可開始批次處理。它會處理目前選取的圖像，支援附加或取代標籤、在連續批次間維持模型載入，以及只更新備註中的 Tagia 區塊（保留其他備註內容）。
+Tagia 是面向 Eagle 的本機 AI 批次圖像標籤外掛。它會處理目前選取的圖像，支援附加或取代標籤、在連續批次間維持模型載入，以及只更新備註中的 Tagia 區塊（保留其他備註）。
 
-**平台需求（重要）**
+完整安裝與核心流程**僅支援 Windows x86_64 + CPython 3.10**。相依使用雜湊鎖定檔（`requirements-locked-win-amd64.txt`）。本版本不支援 macOS / Linux 一鍵安裝。
 
-- 完整安裝與核心標籤流程**僅支援 Windows x86_64 + CPython 3.10**。
-- 相依安裝一律使用此平台的雜湊鎖定檔（`requirements-locked-win-amd64.txt`）。**本版本不支援 macOS / Linux 一鍵安裝。**
+外掛內附固定 commit 引擎原始碼（`vendor/wd14-tagger-standalone`），安裝時複製到 Tagia 擁有的目錄。Python 相依以 `pip install --require-hashes` 安裝。僅允許 `models-pinned.json` 完整固定的模型下載與載入。
 
-**安裝與安全**
+**首次使用所選模型時，Tagia 會自 Hugging Face Hub 下載固定 revision 的模型檔案，驗證 SHA-256，並儲存至共享快取**（`~/.cache/huggingface/hub`）。之後的圖像推論在**本機**執行，不會將圖像位元組傳送到 Tagia 雲端 API。
 
-- 外掛內附固定 commit 的完整引擎原始碼（`vendor/wd14-tagger-standalone`）。安裝時會複製到 Tagia 擁有的目錄。
-- Python 相依透過包含全部遞迴相依與 wheel SHA-256 的鎖定檔，以 `pip install --require-hashes` 安裝；不使用無限制的 `pip install --upgrade pip`。
-- 僅允許 `models-pinned.json` 中完整固定（儲存庫、revision、所需檔案 SHA-256）的模型下載與載入；舊的未固定模型設定會遷移至支援的模型。
-- **僅 Windows：** 若找不到可用的 CPython 3.10，Tagia 可能以 winget（`Python.Python.3.10`、精確版本 **3.10.11**、來源 `winget`）或官方 python.org 安裝程式（HTTPS、SHA-256、Authenticode）安裝 Python。**解除安裝 Tagia 不會刪除該 Python 安裝。**
-- 首次使用模型時，會自 Hugging Face Hub 依固定 revision 下載檔案並驗證 SHA-256，儲存至本機快取（`~/.cache/huggingface/hub`）。之後的標籤推論在**本機**完成，不會將圖像位元組傳送到 Tagia 雲端 API。
-- 解除安裝僅刪除 Tagia 擁有的引擎目錄（擁有權標記 + 記錄路徑）。不會刪除 Hugging Face 快取、使用者自備引擎或系統 Python。
+**僅 Windows：** 若無可用 CPython 3.10，可能以 winget（`Python.Python.3.10`、精確 **3.10.11**、來源 `winget`）或官方 python.org 安裝程式安裝 Python。
 
-**使用方式**
+**解除安裝 Tagia 僅刪除 Tagia 擁有的引擎目錄，並保留共享 Hugging Face 模型快取、系統 Python（含安裝過程中安裝的 Python）以及使用者自備引擎。**
 
-1. 開啟「安裝」頁 → 確認影響說明 → 一鍵安裝 (CPU)。若有 NVIDIA + CUDA，可再安裝 GPU 套件。
-2. 在 Eagle 選取圖像 → 選擇模型與選項 → 為所選圖像打標籤。
-3. 批次處理過程中可停止。
+**用法:** 安裝頁 → 確認說明 → 一鍵安裝 (CPU) → 在 Eagle 選圖 → 打標籤。
+
+**Plugin Website:** `https://github.com/issonokoto/Tagia`

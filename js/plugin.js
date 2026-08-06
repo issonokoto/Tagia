@@ -21,7 +21,7 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.4';
+  const PLUGIN_VERSION = '1.4.5';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
 
   /**

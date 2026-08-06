@@ -13,8 +13,10 @@ npm-debug.log*
 
 # Python / engine runtime (never ship user installs)
 venv/
+**/__pycache__/
 __pycache__/
 *.py[cod]
+*$py.class
 .Python
 *.egg-info/
 

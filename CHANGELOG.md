@@ -7,6 +7,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.5] — 2026-08-03
+
+### Fixed (Community re-review)
+
+- Exclude `python/__pycache__` and all `*.pyc` from release packages; strengthen `.gitignore`.
+- English (and all-locale) store copy: first-use Hugging Face model download + shared cache retained after uninstall; follow reviewer’s suggested emphasis.
+- Store **Plugin Website** must be `https://github.com/issonokoto/Tagia` (never placeholder `xxxx`).
+
+---
+
 ## [1.4.4] — 2026-08-01
 
 ### Security / proactive hardening
