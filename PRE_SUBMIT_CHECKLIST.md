@@ -5,7 +5,9 @@ Use before every Eagle Community upload. Based on [Review Criteria](https://deve
 ## Package
 
 - [ ] Built with Eagle package flow or clean zip of **runtime files only**
-- [ ] No `.git/`, `venv/`, `__pycache__/`, `_cover_backup/`, secrets, nested unrelated zips
+- [ ] No `.git/`, `venv/`, `__pycache__/`, `*.pyc`, `_cover_backup/`, secrets, nested unrelated zips
+- [ ] **Before pack:** wipe caches: `Get-ChildItem -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force`
+- [ ] Open the `.eagleplugin`/zip and confirm **no** `python/__pycache__/`
 - [ ] `manifest.json`: correct version, `devTools: false`, `platform`/`arch` match claims
 - [ ] Install the `.eagleplugin` on a clean machine/profile and smoke-test Tag + Install
 
@@ -16,12 +18,14 @@ Use before every Eagle Community upload. Based on [Review Criteria](https://deve
 - [ ] Models: only `models-pinned.json` allowlist; no legacy unpinned UI options
 - [ ] Uninstall: ownership marker only; no shared HF cache deletion
 - [ ] winget / Python installer: exact version + verification paths unchanged
-- [ ] Listing matches behavior (Python install persists, HF first download, Windows-only)
+- [ ] Listing matches behavior (Python install persists, HF first download + **shared cache retained**, Windows-only)
 
 ## Store listing (each of en / ja / zh_CN / zh_TW)
 
+- [ ] **Plugin Website:** `https://github.com/issonokoto/Tagia` or empty — never `xxxx` / bare `https://`
 - [ ] Platform: **Windows x86_64 + CPython 3.10 only**
-- [ ] Network: first model download from Hugging Face; local inference after
+- [ ] Network: **first-use** model download from Hugging Face; local inference after
+- [ ] Uninstall retains **shared HF model cache** + system Python; only Tagia-owned engine removed
 - [ ] Destructive scope: uninstall = Tagia-owned engine only; Python not removed
 - [ ] Changelog describes this version’s real changes (not “Update”)
 - [ ] No claims for macOS/Linux one-click setup
