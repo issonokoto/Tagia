@@ -21,7 +21,7 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.5';
+  const PLUGIN_VERSION = '1.4.6';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
 
   /**
@@ -2066,8 +2066,17 @@
     return false;
   }
 
+  /**
+   * Consent dialogs must fail closed.
+   * Continue only on explicit button index 0 (continue/install).
+   * Cancel, missing response, or any exception → false (stop).
+   */
   async function confirmInstallImpacts() {
     try {
+      if (!pluginReady || typeof eagle === 'undefined' || !eagle.dialog || !eagle.dialog.showMessageBox) {
+        logInst(t('install.consentDialogFailed'), 'err');
+        return false;
+      }
       const r = await eagle.dialog.showMessageBox({
         title: t('install.consentTitle'),
         message: t('install.consentTitle'),
@@ -2075,9 +2084,39 @@
         buttons: [t('install.consentContinue'), t('common.cancel')],
         type: 'info',
       });
+      if (!r || typeof r.response !== 'number') {
+        logInst(t('install.consentDialogFailed'), 'err');
+        return false;
+      }
       return r.response === 0;
-    } catch {
-      return true;
+    } catch (e) {
+      logInst(t('install.consentDialogFailed') + ': ' + (e && e.message ? e.message : e), 'err');
+      return false;
+    }
+  }
+
+  /** Separate confirmation before installing system Python (persists after uninstall). */
+  async function confirmPythonAutoInstall() {
+    try {
+      if (!pluginReady || typeof eagle === 'undefined' || !eagle.dialog || !eagle.dialog.showMessageBox) {
+        logInst(t('install.pythonAutoDialogFailed'), 'err');
+        return false;
+      }
+      const r = await eagle.dialog.showMessageBox({
+        title: t('install.pythonAutoTitle'),
+        message: t('install.pythonAutoTitle'),
+        detail: t('install.pythonAutoDetail'),
+        buttons: [t('install.pythonAutoOk'), t('common.cancel')],
+        type: 'warning',
+      });
+      if (!r || typeof r.response !== 'number') {
+        logInst(t('install.pythonAutoDialogFailed'), 'err');
+        return false;
+      }
+      return r.response === 0;
+    } catch (e) {
+      logInst(t('install.pythonAutoDialogFailed') + ': ' + (e && e.message ? e.message : e), 'err');
+      return false;
     }
   }
 
@@ -2090,6 +2129,7 @@
       return;
     }
     if (!(await confirmInstallImpacts())) {
+      // cancel OR dialog failure — never continue to pip/winget/download
       logInst(t('install.consentCancel'), 'warn');
       return;
     }
@@ -2116,19 +2156,12 @@
 
       if (!found.ok) {
         logInst('有効な Python 3.10 が見つかりませんでした', 'warn');
-        try {
-          const r = await eagle.dialog.showMessageBox({
-            title: t('install.pythonAutoTitle'),
-            message: t('install.pythonAutoTitle'),
-            detail: t('install.pythonAutoDetail'),
-            buttons: [t('install.pythonAutoOk'), t('common.cancel')],
-            type: 'warning',
-          });
-          if (r.response !== 0) {
-            markStep('step-python', false);
-            return;
-          }
-        } catch {}
+        // Fail closed: no winget / python.org installer without explicit consent
+        if (!(await confirmPythonAutoInstall())) {
+          logInst(t('install.pythonAutoCancel'), 'warn');
+          markStep('step-python', false);
+          return;
+        }
         setBusy('1/3 Python', '自動インストール中…');
         found = await installPythonWindows(logInst);
       }

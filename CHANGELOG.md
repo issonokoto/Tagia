@@ -7,6 +7,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.6] — 2026-08-04
+
+### Security
+
+- **Fail-closed consent:** `confirmInstallImpacts()` and the system-Python confirmation no longer continue when the dialog throws or returns no explicit continue/install response. Cancel and dialog failure both stop setup (no winget, python.org installer, pip, or other downloads).
+
+---
+
 ## [1.4.5] — 2026-08-03
 
 ### Fixed (Community re-review)
