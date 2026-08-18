@@ -34,3 +34,7 @@ __pycache__/
 *.pem
 
 
+
+*.eagleplugin
+Tagia-*.zip
+
