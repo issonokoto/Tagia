@@ -21,7 +21,7 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.6';
+  const PLUGIN_VERSION = '1.4.7';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
 
   /**
@@ -284,20 +284,11 @@
   // ---------- config ----------
   function defaultConfig() {
     const home = os.homedir();
-    const guessRoots = [
-      path.join(home, '.grok', 'bin', 'wd14-tagger-standalone'),
-      path.join(home, 'Documents', 'wd14-tagger-standalone'),
-      path.join(home, 'wd14-tagger-standalone'),
-    ];
-    let taggerRoot = '';
-    for (const r of guessRoots) {
-      if (fs.existsSync(path.join(r, 'run.py')) && fs.existsSync(path.join(r, 'tagger'))) {
-        taggerRoot = r;
-        break;
-      }
-    }
+    // Do NOT auto-discover engines under common user-writable paths.
+    // taggerRoot stays empty until Install creates an owned engine, or the user
+    // explicitly picks a folder and confirms trust.
     return {
-      taggerRoot,
+      taggerRoot: '',
       pythonPath: '',
       model: DEFAULT_MODEL,
       device: 'auto',
@@ -313,6 +304,11 @@
       installDir: path.join(home, 'Documents', 'wd14-tagger-standalone'),
       /** Exact path Tagia created (ownership); only this is recursive-uninstallable */
       ownedInstallPath: '',
+      /**
+       * Explicit trust record for the current engine (owned or user-managed).
+       * { path, trustedAt, owned, hashes?: { runPy, interrogators, workerPlugin } }
+       */
+      trustedEngine: null,
       language: 'auto',
     };
   }
@@ -321,10 +317,27 @@
     try {
       const raw = localStorage.getItem(CONFIG_KEY);
       if (!raw) return defaultConfig();
-      return Object.assign(defaultConfig(), JSON.parse(raw));
+      const cfg = Object.assign(defaultConfig(), JSON.parse(raw));
+      return sanitizeLoadedConfig(cfg);
     } catch {
       return defaultConfig();
     }
+  }
+
+  /**
+   * Drop auto-adopted / untrusted engines so opening the plugin never executes
+   * code from a merely layout-matching folder.
+   */
+  function sanitizeLoadedConfig(cfg) {
+    const c = Object.assign(defaultConfig(), cfg || {});
+    c.taggerRoot = (c.taggerRoot || '').trim();
+    c.trustedEngine = c.trustedEngine || null;
+    if (c.taggerRoot && !isEngineTrusted(c)) {
+      // Keep path visible in Settings for re-trust, but do not treat as ready.
+      // Soft badge / ensureWorker will refuse execution until confirmed.
+      c.trustedEngine = null;
+    }
+    return c;
   }
 
   function saveConfig(cfg) {
@@ -333,14 +346,21 @@
 
   function readUiConfig() {
     const langEl = $('langSelect');
-    // Preserve non-UI fields (ownership path) from stored config
+    // Preserve non-UI fields (ownership path, trust) from stored config
     let prev = {};
     try {
       const raw = localStorage.getItem(CONFIG_KEY);
       if (raw) prev = JSON.parse(raw) || {};
     } catch {}
+    const taggerRoot = ($('taggerRoot').value || '').trim();
+    let trustedEngine = prev.trustedEngine || null;
+    // If UI path diverged from trusted record, trust is void until re-confirmed
+    if (trustedEngine && taggerRoot && !samePath(trustedEngine.path, taggerRoot)) {
+      trustedEngine = null;
+    }
+    if (!taggerRoot) trustedEngine = null;
     return {
-      taggerRoot: ($('taggerRoot').value || '').trim(),
+      taggerRoot,
       pythonPath: ($('pythonPath').value || '').trim(),
       model: $('modelSelect').value,
       device: $('deviceSelect').value,
@@ -355,6 +375,7 @@
       additionalTags: ($('additionalTags').value || '').trim(),
       installDir: ($('installDir').value || '').trim(),
       ownedInstallPath: prev.ownedInstallPath || '',
+      trustedEngine,
       language: (langEl && langEl.value) || 'auto',
     };
   }
@@ -564,8 +585,49 @@
     return path.join(root, OWNERSHIP_MARKER);
   }
 
+  function sha256FileSync(filePath) {
+    const hash = crypto.createHash('sha256');
+    hash.update(fs.readFileSync(filePath));
+    return hash.digest('hex');
+  }
+
+  /** Snapshot hashes used to bind trust to specific on-disk engine/worker files. */
+  function computeEngineTrustHashes(root) {
+    const abs = path.resolve(root);
+    const out = {};
+    const runPy = path.join(abs, 'run.py');
+    if (exists(runPy)) out.runPy = sha256FileSync(runPy);
+    const interrogators = path.join(abs, 'tagger', 'interrogators.py');
+    if (exists(interrogators)) out.interrogators = sha256FileSync(interrogators);
+    try {
+      const wp = workerScript();
+      if (exists(wp)) out.workerPlugin = sha256FileSync(wp);
+    } catch {}
+    return out;
+  }
+
+  function hashesMatch(expected, actual) {
+    if (!expected || typeof expected !== 'object') return true;
+    for (const k of Object.keys(expected)) {
+      if (!expected[k]) continue;
+      if (!actual || actual[k] !== expected[k]) return false;
+    }
+    return true;
+  }
+
+  function readOwnershipMarker(root) {
+    const marker = ownershipMarkerPath(root);
+    if (!exists(marker)) return null;
+    try {
+      return JSON.parse(fs.readFileSync(marker, 'utf8'));
+    } catch {
+      return null;
+    }
+  }
+
   function writeOwnershipMarker(root) {
     const abs = path.resolve(root);
+    const hashes = computeEngineTrustHashes(abs);
     const data = {
       pluginId: PLUGIN_ID,
       pluginVersion: PLUGIN_VERSION,
@@ -573,6 +635,7 @@
       engineCommit: ENGINE_COMMIT,
       installPath: abs,
       createdAt: new Date().toISOString(),
+      hashes,
     };
     fs.writeFileSync(ownershipMarkerPath(abs), JSON.stringify(data, null, 2), 'utf8');
     return data;
@@ -584,16 +647,81 @@
    */
   function isPluginOwnedDir(root) {
     if (!root || !exists(root)) return false;
-    const marker = ownershipMarkerPath(root);
-    if (!exists(marker)) return false;
-    try {
-      const data = JSON.parse(fs.readFileSync(marker, 'utf8'));
-      if (!data || data.pluginId !== PLUGIN_ID) return false;
-      if (!data.installPath) return false;
-      return samePath(data.installPath, root);
-    } catch {
-      return false;
+    const data = readOwnershipMarker(root);
+    if (!data || data.pluginId !== PLUGIN_ID) return false;
+    if (!data.installPath) return false;
+    return samePath(data.installPath, root);
+  }
+
+  /**
+   * Owned engines must have a valid marker; if hashes were recorded, they must still match.
+   */
+  function verifyOwnedEngineIntegrity(root) {
+    if (!isPluginOwnedDir(root)) return false;
+    const data = readOwnershipMarker(root);
+    if (!data) return false;
+    if (data.hashes) {
+      try {
+        const now = computeEngineTrustHashes(root);
+        if (!hashesMatch(data.hashes, now)) return false;
+      } catch {
+        return false;
+      }
     }
+    return true;
+  }
+
+  /**
+   * Execution trust boundary:
+   * - Tagia-owned: valid ownership marker (+ optional hash check)
+   * - User-managed: explicit trustedEngine record for this exact path (+ optional hashes)
+   * Layout-only discovery is never enough.
+   */
+  function isEngineTrusted(cfg) {
+    if (!cfg || !cfg.taggerRoot || !isTaggerRoot(cfg.taggerRoot)) return false;
+    const abs = path.resolve(cfg.taggerRoot);
+    if (isPluginOwnedDir(abs)) {
+      return verifyOwnedEngineIntegrity(abs);
+    }
+    const te = cfg.trustedEngine;
+    if (!te || !te.path || !samePath(te.path, abs)) return false;
+    if (te.owned) return false; // marker missing but claimed owned → reject
+    if (te.hashes) {
+      try {
+        const now = computeEngineTrustHashes(abs);
+        if (!hashesMatch(te.hashes, now)) return false;
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function markEngineTrusted(cfg, enginePath) {
+    const abs = path.resolve(enginePath);
+    const owned = isPluginOwnedDir(abs);
+    let hashes = {};
+    try {
+      hashes = computeEngineTrustHashes(abs);
+    } catch {}
+    cfg.taggerRoot = abs;
+    cfg.trustedEngine = {
+      path: abs,
+      trustedAt: new Date().toISOString(),
+      owned,
+      hashes,
+    };
+    if (owned) {
+      cfg.ownedInstallPath = abs;
+      // refresh marker hashes if owned
+      try { writeOwnershipMarker(abs); } catch {}
+      cfg.trustedEngine.owned = true;
+      try {
+        const m = readOwnershipMarker(abs);
+        if (m && m.hashes) cfg.trustedEngine.hashes = m.hashes;
+      } catch {}
+    }
+    return cfg;
   }
 
   function sha256File(filePath) {
@@ -656,7 +784,8 @@
     return n.includes('\\windowsapps\\') || n.includes('microsoft\\windowsapps');
   }
 
-  function listPythonCandidates(cfg) {
+  function listPythonCandidates(cfg, opts) {
+    const includeEngineVenv = !!(opts && opts.includeEngineVenv);
     const list = [];
     const push = (p) => {
       if (!p) return;
@@ -665,7 +794,15 @@
     };
 
     if (cfg && cfg.pythonPath) push(cfg.pythonPath);
-    if (cfg && cfg.taggerRoot) push(venvPython(cfg.taggerRoot));
+    // Never auto-probe venv python from an untrusted engine directory
+    if (
+      includeEngineVenv &&
+      cfg &&
+      cfg.taggerRoot &&
+      isEngineTrusted(cfg)
+    ) {
+      push(venvPython(cfg.taggerRoot));
+    }
 
     const home = os.homedir();
     if (process.platform === 'win32') {
@@ -744,8 +881,8 @@
   async function findWorkingPython(cfg) {
     const tried = new Set();
 
-    // 1) explicit candidates
-    for (const c of listPythonCandidates(cfg || {})) {
+    // 1) explicit candidates (never probe untrusted engine venv)
+    for (const c of listPythonCandidates(cfg || {}, { includeEngineVenv: false })) {
       if (tried.has(c)) continue;
       tried.add(c);
       if (isWindowsStoreStub(c)) continue;
@@ -770,16 +907,15 @@
   /** Resolve path for worker spawn (must return working path string) */
   function resolvePython(cfg) {
     // CRITICAL: worker must run inside tagger venv (has onnxruntime / deps).
-    // System Python is only for bootstrap (venv create), not for inference.
-    if (cfg.taggerRoot) {
+    // Only use engine venv when that engine is explicitly trusted.
+    if (cfg.taggerRoot && isEngineTrusted(cfg)) {
       const vp = venvPython(cfg.taggerRoot);
       if (exists(vp)) return vp;
     }
     if (cfg.pythonPath && exists(cfg.pythonPath) && !isWindowsStoreStub(cfg.pythonPath)) {
-      // only if not a bare system path when venv should exist — still allow override
       return cfg.pythonPath;
     }
-    for (const c of listPythonCandidates(cfg)) {
+    for (const c of listPythonCandidates(cfg, { includeEngineVenv: false })) {
       if (exists(c) && !isWindowsStoreStub(c)) return c;
     }
     return process.platform === 'win32' ? 'python' : 'python3';
@@ -1349,13 +1485,17 @@
     }
 
     if (!cfg.taggerRoot || !isTaggerRoot(cfg.taggerRoot)) {
-      throw new Error('Engine path is invalid. Check Install / Settings.');
+      throw new Error(t('errors.engineTitle') + ': ' + t('errors.engineDetail'));
+    }
+    if (!isEngineTrusted(cfg)) {
+      throw new Error(t('errors.engineUntrusted'));
     }
     const vpy = venvPython(cfg.taggerRoot);
-    const py = exists(vpy) ? vpy : resolvePython(cfg);
     if (!exists(vpy)) {
-      logMain('警告: venv の python がありません。依存が足りない可能性があります', 'warn');
+      throw new Error(t('errors.engineDetail'));
     }
+    // Always use trusted engine venv — never fall back to arbitrary candidate python
+    const py = vpy;
     const script = workerScript();
     if (!exists(script)) throw new Error('worker.py が見つかりません: ' + script);
 
@@ -1511,21 +1651,19 @@
     }
   }
 
+  /**
+   * Startup badge: filesystem layout only — never execute Python from a candidate engine.
+   */
   function softEnvBadge() {
     const cfg = loadConfig();
-    if (cfg.taggerRoot && isTaggerRoot(cfg.taggerRoot) && exists(venvPython(cfg.taggerRoot))) {
+    const layoutOk = !!(cfg.taggerRoot && isTaggerRoot(cfg.taggerRoot));
+    const venvOk = !!(layoutOk && exists(venvPython(cfg.taggerRoot)));
+    markStep('step-clone', layoutOk);
+    markStep('step-venv', venvOk);
+    if (layoutOk && venvOk && isEngineTrusted(cfg)) {
       setBadge('warn', 'app.statusIdle', true);
-      markStep('step-python', true);
-      markStep('step-clone', true);
-      markStep('step-venv', true);
-      probeVenvProviders(cfg.taggerRoot).then((probe) => {
-        if (probe && probe.ok) {
-          markStep('step-gpu', isGpuProviderList(probe.providers));
-          if ($('stProviders')) {
-            $('stProviders').textContent = (probe.providers || []).join(', ') || '—';
-          }
-        }
-      }).catch(() => {});
+    } else if (layoutOk && venvOk && !isEngineTrusted(cfg)) {
+      setBadge('warn', 'app.statusUntrusted', true);
     } else {
       setBadge('warn', 'app.statusSetup', true);
     }
@@ -1563,7 +1701,8 @@
       cfg &&
       cfg.taggerRoot &&
       isTaggerRoot(cfg.taggerRoot) &&
-      exists(venvPython(cfg.taggerRoot))
+      exists(venvPython(cfg.taggerRoot)) &&
+      isEngineTrusted(cfg)
     );
   }
 
@@ -1989,19 +2128,29 @@
 
   async function checkEnvironment() {
     const cfg = readUiConfig();
+    // System / bootstrap Python only — do not execute engine venv unless trusted
     const found = await findWorkingPython(cfg);
     const py = found.ok ? found.path : resolvePython(cfg);
     $('stPython').textContent = found.ok ? `${py} (${(found.version || '').split(' ')[0]})` : (py + ' (未確認)');
     $('stRoot').textContent = cfg.taggerRoot || '—';
     const vp = cfg.taggerRoot ? venvPython(cfg.taggerRoot) : '';
     const hasVenv = exists(vp);
+    const layoutOk = !!(cfg.taggerRoot && isTaggerRoot(cfg.taggerRoot));
     $('stVenv').textContent = hasVenv ? vp : 'なし';
 
     markStep('step-python', !!found.ok);
-    markStep('step-clone', !!(cfg.taggerRoot && isTaggerRoot(cfg.taggerRoot)));
+    markStep('step-clone', layoutOk);
     markStep('step-venv', hasVenv);
 
-    if (cfg.taggerRoot && isTaggerRoot(cfg.taggerRoot) && hasVenv) {
+    if (layoutOk && hasVenv && !isEngineTrusted(cfg)) {
+      logMain(t('errors.engineUntrusted'), 'warn');
+      setBadge('warn', 'app.statusUntrusted', true);
+      $('stProviders').textContent = '—';
+      $('stWorker').textContent = 'untrusted';
+      return;
+    }
+
+    if (isEngineReady(cfg)) {
       try {
         await ensureWorker(cfg, { forceRestart: true });
         const st = await workerStatus();
@@ -2184,22 +2333,28 @@
       $('pythonPath').value = py;
       $('stPython').textContent = py;
 
-      // 2) Engine: reuse existing root, or download pinned ZIP (no git)
+      // 2) Engine: reuse Tagia-owned / already-trusted root, or install bundled snapshot
       setBusy('2/3 Engine', 'Checking layout…');
       let pluginCreatedEngine = false;
-      if (exists(installDir) && isTaggerRoot(installDir)) {
-        logInst('Existing engine folder: ' + installDir, 'ok');
-        if (isPluginOwnedDir(installDir)) {
-          logInst('Ownership marker present (Tagia-managed)', 'ok');
-        } else {
-          logInst('User-managed engine (uninstall will not delete this folder)', 'warn');
-        }
-      } else if (cfg.taggerRoot && isTaggerRoot(cfg.taggerRoot)) {
+      if (exists(installDir) && isTaggerRoot(installDir) && isPluginOwnedDir(installDir)) {
+        logInst('Existing Tagia-owned engine: ' + installDir, 'ok');
+      } else if (
+        cfg.taggerRoot &&
+        isTaggerRoot(cfg.taggerRoot) &&
+        isEngineTrusted(Object.assign({}, cfg, { taggerRoot: cfg.taggerRoot }))
+      ) {
         installDir = cfg.taggerRoot;
-        logInst('Using configured engine root: ' + installDir, 'ok');
-        if (!isPluginOwnedDir(installDir)) {
-          logInst('User-managed engine (uninstall will not delete this folder)', 'warn');
+        logInst('Using trusted engine root: ' + installDir, 'ok');
+      } else if (exists(installDir) && isTaggerRoot(installDir) && !isPluginOwnedDir(installDir)) {
+        // User-writable folder with layout match — require explicit trust before touching it
+        logInst('Found untrusted engine layout at install dir; confirmation required', 'warn');
+        if (!(await confirmTrustEngine(installDir))) {
+          logInst(t('settings.trustEngineCancel'), 'warn');
+          markStep('step-clone', false);
+          return;
         }
+        markEngineTrusted(cfg, installDir);
+        saveConfig(cfg);
       } else {
         fs.mkdirSync(path.dirname(installDir), { recursive: true });
         if (exists(installDir)) {
@@ -2305,20 +2460,17 @@
       logInst('Hash-locked dependencies installed', 'ok');
       markStep('step-venv', true);
 
-      // save config — only mark owned path when Tagia created the engine tree
+      // save config + explicit trust (owned marker and/or trustedEngine record)
       const next = readUiConfig();
-      next.taggerRoot = installDir;
       next.pythonPath = exists(vpy) ? '' : py;
       next.installDir = installDir;
       if (pluginCreatedEngine || isPluginOwnedDir(installDir)) {
         if (!isPluginOwnedDir(installDir)) writeOwnershipMarker(installDir);
         next.ownedInstallPath = path.resolve(installDir);
-      } else {
-        // keep previous owned path only if still valid; never claim user folder
-        if (next.ownedInstallPath && !isPluginOwnedDir(next.ownedInstallPath)) {
-          next.ownedInstallPath = '';
-        }
+      } else if (next.ownedInstallPath && !isPluginOwnedDir(next.ownedInstallPath)) {
+        next.ownedInstallPath = '';
       }
+      markEngineTrusted(next, installDir);
       applyConfigToUi(next);
       saveConfig(next);
 
@@ -2338,8 +2490,8 @@
     // mode: 'gpu' | 'cpu'
     if (!(await assertSupportedPlatformOrExplain(logInst))) return;
     const cfg = readUiConfig();
-    if (!cfg.taggerRoot || !isTaggerRoot(cfg.taggerRoot)) {
-      logInst('先に一括インストールを実行してください', 'err');
+    if (!isEngineReady(cfg)) {
+      logInst(t('errors.engineUntrusted'), 'err');
       return;
     }
     const vpy = venvPython(cfg.taggerRoot);
@@ -2567,6 +2719,7 @@
       next.taggerRoot = '';
       next.pythonPath = '';
       next.ownedInstallPath = '';
+      next.trustedEngine = null;
       next.language = prevLang;
       applyConfigToUi(next);
       saveConfig(next);
@@ -2615,6 +2768,87 @@
     }
   }
 
+  /**
+   * Fail-closed trust confirmation before executing code from a user-managed (or any) engine.
+   */
+  async function confirmTrustEngine(enginePath) {
+    try {
+      if (!pluginReady || !eagle.dialog || !eagle.dialog.showMessageBox) {
+        logMain(t('settings.trustEngineDialogFailed'), 'err');
+        return false;
+      }
+      const abs = path.resolve(enginePath);
+      const vpy = venvPython(abs);
+      const pyLine = exists(vpy) ? vpy : t('settings.trustEngineNoVenv');
+      const kind = isPluginOwnedDir(abs)
+        ? t('settings.trustKindOwned')
+        : t('settings.trustKindUser');
+      const detail = [
+        t('settings.trustEngineDetail'),
+        '',
+        t('settings.trustEnginePathLabel') + ': ' + abs,
+        t('settings.trustEnginePythonLabel') + ': ' + pyLine,
+        t('settings.trustEngineKindLabel') + ': ' + kind,
+      ].join('\n');
+      const r = await eagle.dialog.showMessageBox({
+        title: t('settings.trustEngineTitle'),
+        message: t('settings.trustEngineTitle'),
+        detail,
+        buttons: [t('settings.trustEngineConfirm'), t('common.cancel')],
+        type: 'warning',
+      });
+      if (!r || typeof r.response !== 'number') {
+        logMain(t('settings.trustEngineDialogFailed'), 'err');
+        return false;
+      }
+      return r.response === 0;
+    } catch (e) {
+      logMain(t('settings.trustEngineDialogFailed') + ': ' + (e && e.message ? e.message : e), 'err');
+      return false;
+    }
+  }
+
+  /** Folder picker + explicit trust before adopting a user-managed engine. */
+  async function browseAndTrustEngine() {
+    if (!pluginReady) return;
+    const res = await eagle.dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: t('settings.engineFolder'),
+    });
+    if (res.canceled || !res.filePaths || !res.filePaths[0]) return;
+    const picked = res.filePaths[0];
+    if (!isTaggerRoot(picked)) {
+      try {
+        await eagle.dialog.showMessageBox({
+          title: t('app.title'),
+          message: t('settings.trustEngineInvalid'),
+          detail: t('settings.engineHint'),
+          buttons: [t('common.ok')],
+          type: 'error',
+        });
+      } catch {}
+      return;
+    }
+    if (!(await confirmTrustEngine(picked))) {
+      logMain(t('settings.trustEngineCancel'), 'warn');
+      return;
+    }
+    $('taggerRoot').value = path.resolve(picked);
+    const cfg = readUiConfig();
+    markEngineTrusted(cfg, picked);
+    applyConfigToUi(cfg);
+    saveConfig(cfg);
+    softEnvBadge();
+    logMain(t('settings.trustEngineSaved'), 'ok');
+    try {
+      await eagle.notification.show({
+        title: t('app.title'),
+        body: t('settings.trustEngineSaved'),
+        duration: 3000,
+      });
+    } catch {}
+  }
+
   async function browseFile(inputId) {
     if (!pluginReady) return;
     const res = await eagle.dialog.showOpenDialog({
@@ -2661,8 +2895,14 @@
 
     $('btnSaveSettings').addEventListener('click', async () => {
       const cfg = readUiConfig();
+      // Manual path edits without trust picker do not grant execution trust
+      if (cfg.taggerRoot && isTaggerRoot(cfg.taggerRoot) && !isEngineTrusted(cfg)) {
+        logMain(t('errors.engineUntrusted'), 'warn');
+        setBadge('warn', 'app.statusUntrusted', true);
+      }
       saveConfig(cfg);
       await applyLanguage(cfg.language);
+      softEnvBadge();
       logMain(t('settings.saved'), 'ok');
       eagle.notification.show({ title: t('app.title'), body: t('settings.saved'), duration: 2000 });
     });
@@ -2693,7 +2933,7 @@
         logMain(e.message, 'err');
       }
     });
-    $('btnBrowseRoot').addEventListener('click', () => browseDir('taggerRoot'));
+    $('btnBrowseRoot').addEventListener('click', () => browseAndTrustEngine());
     $('btnBrowsePy').addEventListener('click', () => browseFile('pythonPath'));
     $('btnBrowseInstall').addEventListener('click', () => browseDir('installDir'));
 

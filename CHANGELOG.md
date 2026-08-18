@@ -7,6 +7,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.7] — 2026-08-05
+
+### Security
+
+- **No auto-adoption of engines:** `taggerRoot` defaults empty; common paths (`Documents/wd14-…`, `~/.grok/bin/…`, etc.) are never selected just because `run.py` + `tagger/` exist.
+- **Startup check is filesystem-only:** soft env badge no longer executes candidate `venv` Python.
+- **Explicit trust required before execution:** user-managed engines must be chosen via folder picker; full engine/Python paths are shown and trusted only after confirmation (fail-closed).
+- **Tagia-owned engines:** require ownership marker; marker records and verifies hashes of `run.py`, `tagger/interrogators.py`, and plugin `worker.py`.
+- Worker spawn uses only a trusted engine venv (never arbitrary discovered Pythons).
+
+---
+
 ## [1.4.6] — 2026-08-04
 
 ### Security
