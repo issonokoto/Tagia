@@ -167,44 +167,44 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## Community “What’s new” (paste-ready) — v1.4.4
+## Community “What’s new” (paste-ready) — v1.4.8
 
 ### English
 
 ```
-v1.4.4 — Platform gate and install consent (proactive review hardening)
+v1.4.8 — Ownership / trust / engine integrity (Community re-review)
 
-- Full setup gated to Windows x64 + CPython 3.10; manifest platform/arch match.
-- Install shows an explicit consent dialog (system Python may remain; HF model download on first use; images stay local).
-- Reviewer notes and pre-submit checklist added for supply-chain clarity.
+- User-picked or existing engine folders are always user-managed: never set as ownedInstallPath and never write/refresh .tagia-owned.json for them.
+- Uninstall recursive delete only when ownedInstallPath, trustedEngine.owned, on-disk ownership marker, and exact path all agree; rejects unsafe paths (drive roots, home, shallow paths, symlinks/junctions).
+- Trust records a complete, deterministically ordered hash manifest of every importable engine .py plus plugin worker.py, and verifies it before each worker launch.
 ```
 
 ### 日本語
 
 ```
-v1.4.4 — 対応環境の強制とインストール同意（審査先回り）
+v1.4.8 — 所有権 / 信頼 / エンジン整合性（Community 再審査対応）
 
-- 完全セットアップを Windows x64 + CPython 3.10 に限定（manifest も一致）。
-- インストール前に影響説明ダイアログ（Python 残存、初回 HF モデル取得、画像はローカル）。
-- 審査者向けノートと提出前チェックリストを追加。
+- フォルダ選択や既存エンジンは常にユーザー管理。ownedInstallPath にせず、.tagia-owned.json の作成・更新もしません。
+- アンインストールの再帰削除は ownedInstallPath・trustedEngine.owned・ディスク上の所有マーカー・パス一致がすべて揃ったときのみ。危険なパス（ドライブ直下・ホーム・浅いパス・シンボリックリンク/ジャンクション）は拒否します。
+- 信頼時にエンジン内の import 可能な全 .py とプラグイン worker.py の完全ハッシュマニフェストを記録し、ワーカー起動前に毎回検証します。
 ```
 
 ### 简体中文
 
 ```
-v1.4.4 — 平台限制与安装确认（主动对齐审核）
+v1.4.8 — 所有权 / 信任 / 引擎完整性（Community 复审）
 
-- 完整安装限定 Windows x64 + CPython 3.10，manifest 与文案一致。
-- 安装前明确确认（可能保留系统 Python、首次从 HF 下载模型、图像留在本机）。
-- 增加审核说明与提交前检查清单。
+- 通过文件夹选择或已有引擎目录一律视为用户自管：不会设为 ownedInstallPath，也不会为其写入/刷新 .tagia-owned.json。
+- 卸载时仅在 ownedInstallPath、trustedEngine.owned、磁盘所有权标记与路径完全一致时才递归删除；拒绝不安全路径（盘符根、用户主目录、过浅路径、符号链接/联接）。
+- 信任记录会保存引擎内全部可导入 .py 以及插件 worker.py 的完整有序哈希清单，并在每次启动 worker 前校验。
 ```
 
 ### 繁體中文
 
 ```
-v1.4.4 — 平台限制與安裝確認（主動對齊審核）
+v1.4.8 — 所有權 / 信任 / 引擎完整性（Community 複審）
 
-- 完整安裝限定 Windows x64 + CPython 3.10，manifest 與文案一致。
-- 安裝前明確確認（可能保留系統 Python、首次自 HF 下載模型、圖像留在本機）。
-- 增加審核說明與提交前檢查清單。
+- 資料夾選擇或既有引擎目錄一律視為使用者自管：不會設為 ownedInstallPath，也不會為其寫入/更新 .tagia-owned.json。
+- 解除安裝僅在 ownedInstallPath、trustedEngine.owned、磁碟所有權標記與路徑完全一致時才遞迴刪除；拒絕不安全路徑（磁碟機根目錄、家目錄、過淺路徑、符號連結/連接點）。
+- 信任紀錄會保存引擎內全部可匯入 .py 以及外掛 worker.py 的完整有序雜湊清單，並在每次啟動 worker 前驗證。
 ```
