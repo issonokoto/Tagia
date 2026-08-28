@@ -7,6 +7,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.8] — 2026-08-19
+
+### Security
+
+- **User-picked / existing engines are never plugin-owned:** folder picker and existing directories always use user-managed trust; never set `ownedInstallPath` or write/refresh `.tagia-owned.json` for them.
+- **Uninstall delete gate:** recursive delete only when `ownedInstallPath` (outside the target), `trustedEngine.owned === true`, on-disk marker, and exact path all agree; rejects drive roots, home, shallow paths, symlinks/junctions.
+- **Complete engine Python integrity:** trust records a deterministically ordered hash manifest of every importable engine `.py` (plus plugin `worker.py`) and verifies it before every worker launch.
+
+---
+
 ## [1.4.7] — 2026-08-05
 
 ### Security

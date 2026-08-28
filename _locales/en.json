@@ -120,6 +120,7 @@
     "trustEngineCancel": "Engine trust cancelled",
     "trustEngineDialogFailed": "Could not show the engine trust dialog. Execution blocked.",
     "trustEngineInvalid": "Not a valid tagging engine folder",
+    "trustEngineNotDeleted": "This folder will be treated as user-managed and will NOT be deleted when you uninstall Tagia.",
     "trustEngineSaved": "Engine trusted. Local code from this path may now run.",
     "status": "Status",
     "btnCheck": "Check environment",

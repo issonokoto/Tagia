@@ -120,6 +120,7 @@
     "trustEngineCancel": "已取消引擎信任",
     "trustEngineDialogFailed": "无法显示引擎信任对话框。已阻止执行。",
     "trustEngineInvalid": "不是有效的打标签引擎文件夹",
+    "trustEngineNotDeleted": "此文件夹将视为用户管理，卸载 Tagia 时不会删除。",
     "trustEngineSaved": "引擎已信任。现在可运行该路径的本地代码。",
     "status": "状态",
     "btnCheck": "环境检查",

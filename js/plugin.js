@@ -21,7 +21,7 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.7';
+  const PLUGIN_VERSION = '1.4.8';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
 
   /**
@@ -591,26 +591,94 @@
     return hash.digest('hex');
   }
 
-  /** Snapshot hashes used to bind trust to specific on-disk engine/worker files. */
-  function computeEngineTrustHashes(root) {
-    const abs = path.resolve(root);
-    const out = {};
-    const runPy = path.join(abs, 'run.py');
-    if (exists(runPy)) out.runPy = sha256FileSync(runPy);
-    const interrogators = path.join(abs, 'tagger', 'interrogators.py');
-    if (exists(interrogators)) out.interrogators = sha256FileSync(interrogators);
+  function isSymlinkOrJunction(p) {
     try {
-      const wp = workerScript();
-      if (exists(wp)) out.workerPlugin = sha256FileSync(wp);
-    } catch {}
+      const st = fs.lstatSync(p);
+      if (st.isSymbolicLink()) return true;
+      // Windows reparse points (junctions) — Node may expose as isSymbolicLink;
+      // also reject if realpath differs from resolve for safety.
+      const real = fs.realpathSync.native ? fs.realpathSync.native(p) : fs.realpathSync(p);
+      if (normPath(real) !== normPath(path.resolve(p))) return true;
+    } catch {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Deterministic list of every engine .py that can be imported (excl. venv / caches).
+   * Paths use forward slashes and are sorted.
+   */
+  function listEnginePyRelativePaths(root) {
+    const abs = path.resolve(root);
+    const out = [];
+    function walk(dir, relBase) {
+      let entries;
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const ent of entries) {
+        if (
+          ent.name === 'venv' ||
+          ent.name === '__pycache__' ||
+          ent.name === '.git' ||
+          ent.name === 'node_modules'
+        ) {
+          continue;
+        }
+        const full = path.join(dir, ent.name);
+        if (isSymlinkOrJunction(full)) continue;
+        const rel = (relBase ? relBase + '/' + ent.name : ent.name).replace(/\\/g, '/');
+        let st;
+        try {
+          st = fs.lstatSync(full);
+        } catch {
+          continue;
+        }
+        if (st.isDirectory()) walk(full, rel);
+        else if (st.isFile() && ent.name.endsWith('.py')) out.push(rel);
+      }
+    }
+    walk(abs, '');
+    out.sort();
     return out;
   }
 
-  function hashesMatch(expected, actual) {
-    if (!expected || typeof expected !== 'object') return true;
-    for (const k of Object.keys(expected)) {
-      if (!expected[k]) continue;
-      if (!actual || actual[k] !== expected[k]) return false;
+  /** Complete py manifest: { files: {rel: sha256}, workerPlugin: sha256 } */
+  function computeEnginePyManifest(root) {
+    const abs = path.resolve(root);
+    const files = {};
+    for (const rel of listEnginePyRelativePaths(abs)) {
+      const full = path.join(abs, ...rel.split('/'));
+      files[rel] = sha256FileSync(full);
+    }
+    let workerPlugin = '';
+    try {
+      const wp = workerScript();
+      if (exists(wp) && !isSymlinkOrJunction(wp)) workerPlugin = sha256FileSync(wp);
+    } catch {}
+    return { files, workerPlugin };
+  }
+
+  function verifyEnginePyManifest(root, expected) {
+    if (!expected || !expected.files || typeof expected.files !== 'object') return false;
+    let now;
+    try {
+      now = computeEnginePyManifest(root);
+    } catch {
+      return false;
+    }
+    const expKeys = Object.keys(expected.files).sort();
+    const nowKeys = Object.keys(now.files).sort();
+    if (expKeys.length === 0 || expKeys.length !== nowKeys.length) return false;
+    for (let i = 0; i < expKeys.length; i++) {
+      if (expKeys[i] !== nowKeys[i]) return false;
+      if (expected.files[expKeys[i]] !== now.files[expKeys[i]]) return false;
+    }
+    if (expected.workerPlugin) {
+      if (!now.workerPlugin || expected.workerPlugin !== now.workerPlugin) return false;
     }
     return true;
   }
@@ -625,9 +693,10 @@
     }
   }
 
+  /** Only call for directories Tagia newly created in this install session. */
   function writeOwnershipMarker(root) {
     const abs = path.resolve(root);
-    const hashes = computeEngineTrustHashes(abs);
+    const pyManifest = computeEnginePyManifest(abs);
     const data = {
       pluginId: PLUGIN_ID,
       pluginVersion: PLUGIN_VERSION,
@@ -635,17 +704,17 @@
       engineCommit: ENGINE_COMMIT,
       installPath: abs,
       createdAt: new Date().toISOString(),
-      hashes,
+      pyManifest,
     };
     fs.writeFileSync(ownershipMarkerPath(abs), JSON.stringify(data, null, 2), 'utf8');
     return data;
   }
 
   /**
-   * True only when Tagia wrote a marker with matching plugin id AND recorded path.
-   * User-managed engine folders without this marker are never recursive-deleted.
+   * Marker presence alone is NOT ownership for uninstall.
+   * Used only as one of several checks together with cfg.ownedInstallPath.
    */
-  function isPluginOwnedDir(root) {
+  function markerClaimsPath(root) {
     if (!root || !exists(root)) return false;
     const data = readOwnershipMarker(root);
     if (!data || data.pluginId !== PLUGIN_ID) return false;
@@ -653,74 +722,106 @@
     return samePath(data.installPath, root);
   }
 
+  /** @deprecated name kept for uninstall clarity — prefer canRecursivelyDeleteEngine */
+  function isPluginOwnedDir(root) {
+    return markerClaimsPath(root);
+  }
+
   /**
-   * Owned engines must have a valid marker; if hashes were recorded, they must still match.
+   * Reject drive roots, user home, shallow paths, symlinks/junctions.
    */
-  function verifyOwnedEngineIntegrity(root) {
-    if (!isPluginOwnedDir(root)) return false;
-    const data = readOwnershipMarker(root);
-    if (!data) return false;
-    if (data.hashes) {
-      try {
-        const now = computeEngineTrustHashes(root);
-        if (!hashesMatch(data.hashes, now)) return false;
-      } catch {
-        return false;
-      }
-    }
+  function isSafeUninstallTarget(absPath) {
+    if (!absPath || !exists(absPath)) return false;
+    const resolved = path.resolve(absPath);
+    if (isSymlinkOrJunction(resolved)) return false;
+    const parsed = path.parse(resolved);
+    const root = parsed.root;
+    if (!root) return false;
+    if (samePath(resolved, root) || samePath(resolved + path.sep, root)) return false;
+    const home = path.resolve(os.homedir());
+    if (samePath(resolved, home)) return false;
+    // Require enough depth: e.g. C:\Users\name\Documents\... (not C:\Users)
+    const rel = path.relative(root, resolved);
+    const depth = rel.split(path.sep).filter(Boolean).length;
+    if (depth < 2) return false;
+    // Must look like a tagger root (narrow target)
+    if (!isTaggerRoot(resolved)) return false;
     return true;
   }
 
   /**
-   * Execution trust boundary:
-   * - Tagia-owned: valid ownership marker (+ optional hash check)
-   * - User-managed: explicit trustedEngine record for this exact path (+ optional hashes)
-   * Layout-only discovery is never enough.
+   * Uninstall delete gate: external ownedInstallPath + trustedEngine.owned +
+   * on-disk marker + exact path + safety checks. Marker alone is never enough.
+   */
+  function canRecursivelyDeleteEngine(cfg, absPath) {
+    const abs = path.resolve(absPath);
+    if (!cfg || !cfg.ownedInstallPath) return false;
+    if (!samePath(cfg.ownedInstallPath, abs)) return false;
+    if (!cfg.trustedEngine || cfg.trustedEngine.owned !== true) return false;
+    if (!samePath(cfg.trustedEngine.path, abs)) return false;
+    if (!markerClaimsPath(abs)) return false;
+    if (!isSafeUninstallTarget(abs)) return false;
+    return true;
+  }
+
+  /**
+   * Execution trust:
+   * - Always requires trustedEngine for exact path + full py manifest verify
+   * - owned:true also requires cfg.ownedInstallPath + marker agreement
+   * - owned:false (user-managed / folder picker): never claims deletable ownership
    */
   function isEngineTrusted(cfg) {
     if (!cfg || !cfg.taggerRoot || !isTaggerRoot(cfg.taggerRoot)) return false;
     const abs = path.resolve(cfg.taggerRoot);
-    if (isPluginOwnedDir(abs)) {
-      return verifyOwnedEngineIntegrity(abs);
-    }
     const te = cfg.trustedEngine;
     if (!te || !te.path || !samePath(te.path, abs)) return false;
-    if (te.owned) return false; // marker missing but claimed owned → reject
-    if (te.hashes) {
-      try {
-        const now = computeEngineTrustHashes(abs);
-        if (!hashesMatch(te.hashes, now)) return false;
-      } catch {
-        return false;
-      }
+    if (!te.pyManifest || !verifyEnginePyManifest(abs, te.pyManifest)) return false;
+
+    if (te.owned === true) {
+      if (!cfg.ownedInstallPath || !samePath(cfg.ownedInstallPath, abs)) return false;
+      if (!markerClaimsPath(abs)) return false;
+      const data = readOwnershipMarker(abs);
+      if (!data || !data.pyManifest) return false;
+      if (!verifyEnginePyManifest(abs, data.pyManifest)) return false;
+      return true;
     }
-    return true;
+
+    // User-managed: explicit trust only; do not treat on-disk marker as ownership
+    if (te.owned === false) return true;
+    return false;
   }
 
-  function markEngineTrusted(cfg, enginePath) {
+  /**
+   * Folder-picker / existing-directory trust. NEVER sets ownedInstallPath or writes marker.
+   */
+  function markUserManagedTrusted(cfg, enginePath) {
     const abs = path.resolve(enginePath);
-    const owned = isPluginOwnedDir(abs);
-    let hashes = {};
-    try {
-      hashes = computeEngineTrustHashes(abs);
-    } catch {}
+    const pyManifest = computeEnginePyManifest(abs);
     cfg.taggerRoot = abs;
     cfg.trustedEngine = {
       path: abs,
       trustedAt: new Date().toISOString(),
-      owned,
-      hashes,
+      owned: false,
+      pyManifest,
     };
-    if (owned) {
-      cfg.ownedInstallPath = abs;
-      // refresh marker hashes if owned
-      try { writeOwnershipMarker(abs); } catch {}
-      cfg.trustedEngine.owned = true;
-      try {
-        const m = readOwnershipMarker(abs);
-        if (m && m.hashes) cfg.trustedEngine.hashes = m.hashes;
-      } catch {}
-    }
+    // Do not touch ownedInstallPath
+    return cfg;
+  }
+
+  /**
+   * Only for engines newly created by Tagia install in this session.
+   */
+  function markOwnedEngineTrusted(cfg, enginePath) {
+    const abs = path.resolve(enginePath);
+    const data = writeOwnershipMarker(abs);
+    cfg.taggerRoot = abs;
+    cfg.ownedInstallPath = abs;
+    cfg.trustedEngine = {
+      path: abs,
+      trustedAt: new Date().toISOString(),
+      owned: true,
+      pyManifest: data.pyManifest,
+    };
     return cfg;
   }
 
@@ -1345,8 +1446,8 @@
       }
 
       copyPluginSecurityFiles(installDir, log);
-      writeOwnershipMarker(installDir);
-      log('Engine installed (owned by Tagia): ' + installDir, 'ok');
+      // Ownership marker is written only after full successful install via markOwnedEngineTrusted
+      log('Engine files placed at: ' + installDir, 'ok');
       return installDir;
     } finally {
       try { if (exists(zipPath)) fs.unlinkSync(zipPath); } catch {}
@@ -2333,27 +2434,37 @@
       $('pythonPath').value = py;
       $('stPython').textContent = py;
 
-      // 2) Engine: reuse Tagia-owned / already-trusted root, or install bundled snapshot
+      // 2) Engine: reuse previously recorded Tagia-owned path, trusted user path, or create new
       setBusy('2/3 Engine', 'Checking layout…');
       let pluginCreatedEngine = false;
-      if (exists(installDir) && isTaggerRoot(installDir) && isPluginOwnedDir(installDir)) {
-        logInst('Existing Tagia-owned engine: ' + installDir, 'ok');
+      if (
+        cfg.ownedInstallPath &&
+        samePath(cfg.ownedInstallPath, installDir) &&
+        exists(installDir) &&
+        isTaggerRoot(installDir) &&
+        markerClaimsPath(installDir) &&
+        isEngineTrusted(Object.assign({}, cfg, { taggerRoot: installDir }))
+      ) {
+        logInst('Reusing Tagia-owned engine recorded in settings: ' + installDir, 'ok');
       } else if (
         cfg.taggerRoot &&
         isTaggerRoot(cfg.taggerRoot) &&
-        isEngineTrusted(Object.assign({}, cfg, { taggerRoot: cfg.taggerRoot }))
+        isEngineTrusted(cfg) &&
+        cfg.trustedEngine &&
+        cfg.trustedEngine.owned === false
       ) {
         installDir = cfg.taggerRoot;
-        logInst('Using trusted engine root: ' + installDir, 'ok');
-      } else if (exists(installDir) && isTaggerRoot(installDir) && !isPluginOwnedDir(installDir)) {
-        // User-writable folder with layout match — require explicit trust before touching it
-        logInst('Found untrusted engine layout at install dir; confirmation required', 'warn');
+        logInst('Using trusted user-managed engine: ' + installDir, 'ok');
+      } else if (exists(installDir) && isTaggerRoot(installDir)) {
+        // Existing directory (even with a .tagia-owned.json) is NEVER auto-owned.
+        // Folder already exists → user-managed trust only; do not write/refresh ownership marker.
+        logInst('Existing engine directory found; treating as user-managed (trust required)', 'warn');
         if (!(await confirmTrustEngine(installDir))) {
           logInst(t('settings.trustEngineCancel'), 'warn');
           markStep('step-clone', false);
           return;
         }
-        markEngineTrusted(cfg, installDir);
+        markUserManagedTrusted(cfg, installDir);
         saveConfig(cfg);
       } else {
         fs.mkdirSync(path.dirname(installDir), { recursive: true });
@@ -2366,7 +2477,7 @@
             }
           } catch {}
         }
-        setBusy('2/3 Engine', 'Downloading pinned engine…');
+        setBusy('2/3 Engine', 'Installing bundled engine…');
         try {
           await fetchPinnedEngine(installDir, logInst);
           pluginCreatedEngine = true;
@@ -2460,17 +2571,23 @@
       logInst('Hash-locked dependencies installed', 'ok');
       markStep('step-venv', true);
 
-      // save config + explicit trust (owned marker and/or trustedEngine record)
+      // save config + trust: only newly created engines are owned/deletable
       const next = readUiConfig();
       next.pythonPath = exists(vpy) ? '' : py;
       next.installDir = installDir;
-      if (pluginCreatedEngine || isPluginOwnedDir(installDir)) {
-        if (!isPluginOwnedDir(installDir)) writeOwnershipMarker(installDir);
-        next.ownedInstallPath = path.resolve(installDir);
-      } else if (next.ownedInstallPath && !isPluginOwnedDir(next.ownedInstallPath)) {
-        next.ownedInstallPath = '';
+      if (pluginCreatedEngine) {
+        markOwnedEngineTrusted(next, installDir);
+      } else {
+        // Existing / user-managed path: trust for execution only, never claim ownership
+        markUserManagedTrusted(next, installDir);
+        // Preserve prior ownedInstallPath only if it still matches an external+marker owned engine
+        if (next.ownedInstallPath && !canRecursivelyDeleteEngine(next, next.ownedInstallPath)) {
+          // if we switched away from owned path, clear deletable record when not the same path
+          if (!samePath(next.ownedInstallPath, installDir)) {
+            /* keep previous ownedInstallPath for uninstall of old install if still valid */
+          }
+        }
       }
-      markEngineTrusted(next, installDir);
       applyConfigToUi(next);
       saveConfig(next);
 
@@ -2623,40 +2740,20 @@
     if (!pluginReady) return;
     const cfg = readUiConfig();
     /**
-     * Recursive delete ONLY directories Tagia created:
-     *  - ownership marker with matching plugin id + recorded path
-     *  - and path equals config.ownedInstallPath when set
-     * Never delete a user-supplied engine folder that merely looks like a tagger root.
+     * Recursive delete ONLY when ALL agree:
+     *  - cfg.ownedInstallPath (outside the target)
+     *  - trustedEngine.owned === true for that path
+     *  - on-disk marker pluginId + installPath
+     *  - exact normalized path + safe target (not home/root/symlink)
+     * Marker alone / folder-picker trust never makes a path deletable.
      */
     const targets = [];
-    const seen = new Set();
-    const consider = (p) => {
-      if (!p || !exists(p)) return;
-      const abs = path.resolve(p);
-      const key = normPath(abs);
-      if (seen.has(key)) return;
-      if (!isPluginOwnedDir(abs)) {
-        logInst('Skip (not Tagia-owned): ' + abs, 'warn');
-        return;
-      }
-      // If we recorded an owned path, only allow that exact path
-      if (cfg.ownedInstallPath && !samePath(cfg.ownedInstallPath, abs)) {
-        logInst('Skip (path ≠ recorded ownedInstallPath): ' + abs, 'warn');
-        return;
-      }
-      seen.add(key);
-      targets.push(abs);
-    };
-
-    consider(cfg.ownedInstallPath);
-    // Also allow taggerRoot only when it is owned AND matches recorded path (or recorded empty legacy)
-    if (cfg.taggerRoot && isPluginOwnedDir(cfg.taggerRoot)) {
-      if (!cfg.ownedInstallPath || samePath(cfg.ownedInstallPath, cfg.taggerRoot)) {
-        consider(cfg.taggerRoot);
-      }
+    if (cfg.ownedInstallPath && canRecursivelyDeleteEngine(cfg, cfg.ownedInstallPath)) {
+      targets.push(path.resolve(cfg.ownedInstallPath));
+    } else if (cfg.ownedInstallPath) {
+      logInst('Skip uninstall target (ownership checks failed): ' + cfg.ownedInstallPath, 'warn');
     }
 
-    // Uninstall deletes ONLY Tagia-owned engine directories.
     // Shared Hugging Face caches under ~/.cache/huggingface are never scanned or removed.
     if (!targets.length) {
       logInst(t('install.uninstallNone'), 'warn');
@@ -2697,13 +2794,13 @@
       killWorker();
 
       for (const target of targets) {
-        // Re-check ownership immediately before delete
-        if (!isPluginOwnedDir(target)) {
-          logInst('Abort delete — ownership lost: ' + target, 'err');
+        // Re-check full ownership gate immediately before delete
+        if (!canRecursivelyDeleteEngine(cfg, target)) {
+          logInst('Abort delete — ownership checks failed: ' + target, 'err');
           continue;
         }
         setBusy(null, 'Deleting: ' + target);
-        logInst('Deleting owned engine: ' + target, 'info');
+        logInst('Deleting Tagia-created engine: ' + target, 'info');
         try {
           rmDirRecursive(target);
           if (exists(target)) logInst('Could not fully remove: ' + target, 'err');
@@ -2780,15 +2877,15 @@
       const abs = path.resolve(enginePath);
       const vpy = venvPython(abs);
       const pyLine = exists(vpy) ? vpy : t('settings.trustEngineNoVenv');
-      const kind = isPluginOwnedDir(abs)
-        ? t('settings.trustKindOwned')
-        : t('settings.trustKindUser');
+      // Folder picker always trusts as user-managed (never deletable ownership)
+      const kind = t('settings.trustKindUser');
       const detail = [
         t('settings.trustEngineDetail'),
         '',
         t('settings.trustEnginePathLabel') + ': ' + abs,
         t('settings.trustEnginePythonLabel') + ': ' + pyLine,
         t('settings.trustEngineKindLabel') + ': ' + kind,
+        t('settings.trustEngineNotDeleted'),
       ].join('\n');
       const r = await eagle.dialog.showMessageBox({
         title: t('settings.trustEngineTitle'),
@@ -2835,7 +2932,8 @@
     }
     $('taggerRoot').value = path.resolve(picked);
     const cfg = readUiConfig();
-    markEngineTrusted(cfg, picked);
+    // Always user-managed: never ownedInstallPath / never refresh ownership marker
+    markUserManagedTrusted(cfg, picked);
     applyConfigToUi(cfg);
     saveConfig(cfg);
     softEnvBadge();

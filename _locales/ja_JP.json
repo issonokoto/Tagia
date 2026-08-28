@@ -120,6 +120,7 @@
     "trustEngineCancel": "エンジンの信頼をキャンセルしました",
     "trustEngineDialogFailed": "信頼確認ダイアログを表示できません。実行をブロックしました。",
     "trustEngineInvalid": "有効なタグ付けエンジンフォルダではありません",
+    "trustEngineNotDeleted": "このフォルダはユーザー管理として扱い、Tagia のアンインストールでは削除しません。",
     "trustEngineSaved": "エンジンを信頼しました。このパスのローカルコードを実行できます。",
     "status": "状態",
     "btnCheck": "環境チェック",

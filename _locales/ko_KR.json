@@ -120,6 +120,7 @@
     "trustEngineCancel": "엔진 신뢰가 취소되었습니다",
     "trustEngineDialogFailed": "엔진 신뢰 대화상자를 표시할 수 없습니다. 실행을 차단했습니다.",
     "trustEngineInvalid": "유효한 태깅 엔진 폴더가 아닙니다",
+    "trustEngineNotDeleted": "이 폴더는 사용자 관리로 취급되며 Tagia 제거 시 삭제되지 않습니다.",
     "trustEngineSaved": "엔진이 신뢰되었습니다. 이 경로의 로컬 코드를 실행할 수 있습니다.",
     "status": "상태",
     "btnCheck": "환경 확인",

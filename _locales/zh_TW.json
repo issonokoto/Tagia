@@ -120,6 +120,7 @@
     "trustEngineCancel": "已取消引擎信任",
     "trustEngineDialogFailed": "無法顯示引擎信任對話框。已阻止執行。",
     "trustEngineInvalid": "不是有效的標籤引擎資料夾",
+    "trustEngineNotDeleted": "此資料夾將視為使用者管理，解除安裝 Tagia 時不會刪除。",
     "trustEngineSaved": "引擎已信任。現在可執行該路徑的本機程式碼。",
     "status": "狀態",
     "btnCheck": "環境檢查",
