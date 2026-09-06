@@ -7,6 +7,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.9] — 2026-09-06
+
+### Security
+
+- **Append vs Replace:** mutually exclusive choices. Replace requires a fail-closed confirmation that shows the affected item count, states that all existing tags will be replaced, and that there is no reliable Eagle undo. Cancel is the default; Enter does not confirm. A verifiable SHA-256 snapshot of original tags (and notes) is saved first; **Restore last replaced tags** writes them back.
+- **User-managed engines are not modified in place:** runtime files, venv, and packages live only in a Tagia-owned `tagia-runtime` subdirectory. Engine `run.py` / `tagger/` / existing root venv are never overwritten. If `tagia-runtime` exists and is not Tagia-owned, setup stops. CPU/GPU switching confirms and changes packages only inside that venv.
+- **Uninstall:** every locale states that the entire listed directory is recursively and permanently deleted with no undo (no Recycle Bin). Two independent confirmations; the second requires typing the folder name. Cancel is focused by default; Enter / overlay click never delete.
+
+### Changed
+
+- Tag write mode is a radio group (Append / Replace) instead of an “Append” checkbox.
+- Trust dialog lists the isolated runtime folder and the classes of files/packages that will be created there.
+
+---
+
 ## [1.4.8] — 2026-08-19
 
 ### Security
@@ -167,44 +182,44 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## Community “What’s new” (paste-ready) — v1.4.8
+## Community “What’s new” (paste-ready) — v1.4.9
 
 ### English
 
 ```
-v1.4.8 — Ownership / trust / engine integrity (Community re-review)
+v1.4.9 — Safer tag replace, isolated user engines, uninstall confirmations
 
-- User-picked or existing engine folders are always user-managed: never set as ownedInstallPath and never write/refresh .tagia-owned.json for them.
-- Uninstall recursive delete only when ownedInstallPath, trustedEngine.owned, on-disk ownership marker, and exact path all agree; rejects unsafe paths (drive roots, home, shallow paths, symlinks/junctions).
-- Trust records a complete, deterministically ordered hash manifest of every importable engine .py plus plugin worker.py, and verifies it before each worker launch.
+- Append and Replace are separate choices. Replace asks for confirmation with the item count, states that existing tags will be removed, saves a snapshot, and offers batch restore. Cancel is the default; Enter does not confirm.
+- User-managed engines are not modified in place. Tagia runtime, venv, and packages go only in a Tagia-owned tagia-runtime folder.
+- Uninstall states that the listed directory is recursively and permanently deleted with no undo. Two confirmations, including typing the folder name. Cancel is the default; Enter does not delete.
 ```
 
 ### 日本語
 
 ```
-v1.4.8 — 所有権 / 信頼 / エンジン整合性（Community 再審査対応）
+v1.4.9 — タグ置き換えの確認、ユーザーエンジンの隔離、アンインストール確認
 
-- フォルダ選択や既存エンジンは常にユーザー管理。ownedInstallPath にせず、.tagia-owned.json の作成・更新もしません。
-- アンインストールの再帰削除は ownedInstallPath・trustedEngine.owned・ディスク上の所有マーカー・パス一致がすべて揃ったときのみ。危険なパス（ドライブ直下・ホーム・浅いパス・シンボリックリンク/ジャンクション）は拒否します。
-- 信頼時にエンジン内の import 可能な全 .py とプラグイン worker.py の完全ハッシュマニフェストを記録し、ワーカー起動前に毎回検証します。
+- 追加と置き換えを別の選択に分離。置き換えは件数付きの確認、既存タグ削除の明示、スナップショット保存、一括復元に対応。既定はキャンセル。Enter では実行しません。
+- ユーザー管理エンジンは直接変更しません。ランタイム・venv・パッケージは Tagia 所有の tagia-runtime にだけ置きます。
+- アンインストールは対象フォルダ全体を再帰的かつ永続的に削除し、元に戻せないと明記。二重確認とフォルダ名入力。既定はキャンセル。Enter では削除しません。
 ```
 
 ### 简体中文
 
 ```
-v1.4.8 — 所有权 / 信任 / 引擎完整性（Community 复审）
+v1.4.9 — 更安全的标签替换、隔离用户引擎、卸载确认
 
-- 通过文件夹选择或已有引擎目录一律视为用户自管：不会设为 ownedInstallPath，也不会为其写入/刷新 .tagia-owned.json。
-- 卸载时仅在 ownedInstallPath、trustedEngine.owned、磁盘所有权标记与路径完全一致时才递归删除；拒绝不安全路径（盘符根、用户主目录、过浅路径、符号链接/联接）。
-- 信任记录会保存引擎内全部可导入 .py 以及插件 worker.py 的完整有序哈希清单，并在每次启动 worker 前校验。
+- 追加与替换为互斥选项。替换会显示受影响数量、说明将删除全部已有标签、先保存快照并提供批量还原。默认取消；Enter 不会确认。
+- 不直接修改用户自备引擎。运行时、venv 与软件包仅放在 Tagia 拥有的 tagia-runtime 子目录。
+- 卸载明确说明将递归且永久删除所列目录且无法撤销。两次确认，包括输入文件夹名称。默认取消；Enter 不会删除。
 ```
 
 ### 繁體中文
 
 ```
-v1.4.8 — 所有權 / 信任 / 引擎完整性（Community 複審）
+v1.4.9 — 更安全的標籤取代、隔離使用者引擎、解除安裝確認
 
-- 資料夾選擇或既有引擎目錄一律視為使用者自管：不會設為 ownedInstallPath，也不會為其寫入/更新 .tagia-owned.json。
-- 解除安裝僅在 ownedInstallPath、trustedEngine.owned、磁碟所有權標記與路徑完全一致時才遞迴刪除；拒絕不安全路徑（磁碟機根目錄、家目錄、過淺路徑、符號連結/連接點）。
-- 信任紀錄會保存引擎內全部可匯入 .py 以及外掛 worker.py 的完整有序雜湊清單，並在每次啟動 worker 前驗證。
+- 附加與取代為互斥選項。取代會顯示受影響數量、說明將刪除全部既有標籤、先保存快照並提供批次還原。預設取消；Enter 不會確認。
+- 不直接修改使用者自備引擎。執行環境、venv 與套件僅放在 Tagia 擁有的 tagia-runtime 子目錄。
+- 解除安裝明確說明將遞迴且永久刪除所列目錄且無法復原。兩次確認，包括輸入資料夾名稱。預設取消；Enter 不會刪除。
 ```

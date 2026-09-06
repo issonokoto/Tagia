@@ -1,6 +1,6 @@
 {
     "id": "c30c0fd0-df7a-4792-af3d-cf24674eba45",
-    "version": "1.4.8",
+    "version": "1.4.9",
     "platform": "win",
     "arch": "x64",
     "name": "{{manifest.app.name}}",
@@ -12,9 +12,9 @@
     "main": {
         "url": "index.html",
         "width": 460,
-        "height": 720,
+        "height": 760,
         "minWidth": 400,
-        "minHeight": 560,
+        "minHeight": 600,
         "resizable": true,
         "maximizable": true,
         "minimizable": true,

@@ -59,8 +59,15 @@
               <input type="number" id="maxTags" min="0" max="500" step="1" value="0" />
             </div>
           </div>
+          <div class="section-title" style="margin-top:10px" data-i18n="tag.writeMode">How to write tags</div>
+          <div class="write-mode" id="writeModeGroup" role="radiogroup">
+            <label class="check"><input type="radio" name="tagWriteMode" id="modeAppend" value="append" checked /> <span data-i18n="tag.append">Append to existing tags</span></label>
+            <label class="check"><input type="radio" name="tagWriteMode" id="modeReplace" value="replace" /> <span data-i18n="tag.replace">Replace all existing tags</span></label>
+          </div>
+          <div class="hint" id="replaceHint" style="margin-top:6px" data-i18n="tag.replaceHint">
+            Replace removes every existing tag on each selected item and saves immediately. A snapshot is stored so you can restore the last replacement batch.
+          </div>
           <div class="checks" style="margin-top:8px">
-            <label class="check"><input type="checkbox" id="modeAppend" checked /> <span data-i18n="tag.append">Append to existing tags</span></label>
             <label class="check"><input type="checkbox" id="skipTagged" /> <span data-i18n="tag.skipTagged">Skip already tagged</span></label>
             <label class="check"><input type="checkbox" id="rawtag" /> <span data-i18n="tag.rawtag">Raw tags (underscore)</span></label>
             <label class="check"><input type="checkbox" id="keepWorker" checked /> <span data-i18n="tag.keepWorker">Keep model loaded (faster)</span></label>
@@ -98,6 +105,9 @@
         <div class="footer-actions" style="margin-top:8px">
           <button class="btn" id="btnRefreshSel" data-i18n="tag.btnRefresh">Refresh selection</button>
           <button class="btn" id="btnWarmup" data-i18n="tag.btnWarmup">Load model</button>
+        </div>
+        <div class="footer-actions" style="margin-top:8px">
+          <button class="btn" id="btnRestoreTags" data-i18n="tag.restoreBtn">Restore last replaced tags</button>
         </div>
 
         <div class="section" style="margin-top:12px">
@@ -251,6 +261,21 @@
           <button class="btn danger sm" id="btnUninstall" data-i18n="install.btnUninstall">Uninstall</button>
         </div>
       </section>
+    </div>
+  </div>
+
+  <div id="safeModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="safeModalTitle">
+    <div class="modal-card">
+      <h2 id="safeModalTitle"></h2>
+      <div id="safeModalBody" class="modal-body"></div>
+      <div id="safeModalTypeWrap" class="hidden">
+        <label class="field-label" id="safeModalTypeLabel" for="safeModalType"></label>
+        <input type="text" id="safeModalType" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="safeModalCancel"></button>
+        <button type="button" class="btn danger" id="safeModalOk"></button>
+      </div>
     </div>
   </div>
 

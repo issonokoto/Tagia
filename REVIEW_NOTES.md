@@ -1,4 +1,4 @@
-# Tagia — notes for Eagle reviewers (v1.4.4)
+# Tagia — notes for Eagle reviewers (v1.4.9)
 
 ## What this plugin does
 
@@ -43,7 +43,9 @@ Install and GPU switch refuse other platforms with an in-UI explanation.
 2. Open Tagia → Install → confirm the impact dialog → Install all (CPU).
 3. Select an image in Eagle → Tag tab → Tag selected images (first run may download a pinned model).
 4. Confirm tags appear on the item; optional Note block `<!-- Tagia -->`.
-5. Uninstall from Install tab: only the Tagia-owned engine path is listed; system Python remains.
+5. Uninstall from Install tab: only the Tagia-owned engine path is listed; two confirmations; type folder name; Cancel default; system Python remains.
+6. Tag tab: Append / Replace radios. Replace shows count + no-undo text + snapshot restore.
+7. Settings → Browse a user engine: trust dialog lists `tagia-runtime`; Install does not overwrite `run.py` / `tagger/`.
 
 ## Package hygiene
 

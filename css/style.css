@@ -474,6 +474,82 @@ input[type="range"] {
   margin-top: 4px;
 }
 
+.write-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg3);
+}
+
+.write-mode.replace-on {
+  border-color: #6a3035;
+  background: #24181b;
+}
+
+#replaceHint.warnish {
+  color: var(--err);
+}
+
+/* Fail-closed confirmation overlay (Cancel default; Enter never confirms) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 8, 12, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal-card {
+  width: min(420px, 100%);
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 16px 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.modal-card h2 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.modal-body {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 12px;
+}
+
+#safeModalTypeWrap {
+  margin-bottom: 12px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.modal-actions .btn {
+  min-width: 96px;
+}
+
+.modal-actions .btn:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb {

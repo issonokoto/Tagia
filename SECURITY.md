@@ -1,4 +1,4 @@
-# Tagia security & supply-chain notes (v1.4.4)
+# Tagia security & supply-chain notes (v1.4.9)
 
 ## Engine (bundled)
 
@@ -24,7 +24,15 @@ If no working Python is found, Tagia may:
    `Python.Python.3.10` **exact version 3.10.11**
 2. Or download the official python.org Windows installer, verify **SHA-256** and **Authenticode**, then run it.
 
-**Uninstall Tagia does not remove that system Python.** Only the Tagia-owned engine directory is deleted.
+**Uninstall Tagia does not remove that system Python.** Only the Tagia-owned engine directory (or, for a user-managed engine, only the `tagia-runtime` subdirectory) is deleted — recursively and permanently, after two confirmations including typing the folder name.
+
+## User-managed engines
+
+Tagia does not write venv, `worker.py`, lock files, or pip packages into a user-picked engine root. Those live in `<engine>/tagia-runtime/` (Tagia-owned marker). The user engine (`run.py`, `tagger/`) is treated as read-only.
+
+## Tag replacement
+
+Replace mode requires an in-plugin confirmation (Cancel default; Enter does not confirm) and writes a SHA-256 snapshot of original tags for batch restore.
 
 ## Models (Hugging Face)
 
@@ -52,5 +60,6 @@ Each listed model file has a documented SHA-256. The worker downloads with that 
 
 ## Uninstall scope
 
-Deletes only directories with Tagia ownership marker (`.tagia-owned.json`) and matching recorded path.  
-Does **not** delete: system Python, Hugging Face caches, user-managed engines.
+Deletes only directories with Tagia ownership marker (`.tagia-owned.json`) and matching recorded path (full Tagia-created engine, or `tagia-runtime` under a user-managed engine). Deletion is recursive and permanent (no Recycle Bin). Two fail-closed confirmations; the second requires typing the folder name. Cancel is the default; Enter does not delete.
+
+Does **not** delete: system Python, Hugging Face caches, user-managed engine files (`run.py`, `tagger/`, user venv).

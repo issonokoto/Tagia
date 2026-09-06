@@ -16,7 +16,9 @@ Use before every Eagle Community upload. Based on [Review Criteria](https://deve
 - [ ] Install only uses hash-locked requirements (`--require-hashes`)
 - [ ] No unconstrained `pip install --upgrade pip`
 - [ ] Models: only `models-pinned.json` allowlist; no legacy unpinned UI options
-- [ ] Uninstall: ownership marker only; no shared HF cache deletion
+- [ ] Uninstall: ownership marker only; no shared HF cache deletion; two confirmations; type folder name; Cancel default; Enter does not delete
+- [ ] Replace mode: radio (not checkbox), fail-closed confirm with count, snapshot + restore
+- [ ] User-managed engine: no in-place venv/file overwrite; `tagia-runtime` subdirectory only
 - [ ] winget / Python installer: exact version + verification paths unchanged
 - [ ] Listing matches behavior (Python install persists, HF first download + **shared cache retained**, Windows-only)
 

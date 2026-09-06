@@ -21,8 +21,10 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.8';
+  const PLUGIN_VERSION = '1.4.9';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
+  /** Tagia-owned runtime + venv for user-managed engines (never the user engine root). */
+  const RUNTIME_DIR_NAME = 'tagia-runtime';
 
   /**
    * Pinned engine snapshot (immutable).
@@ -226,6 +228,7 @@
       }
     } catch {}
     applyI18n();
+    try { syncWriteModeHint(); } catch {}
   }
 
   function applyI18n() {
@@ -281,6 +284,181 @@
 
   const $ = (id) => document.getElementById(id);
 
+  function setModalMultiline(el, text) {
+    if (!el) return;
+    el.textContent = '';
+    const parts = String(text == null ? '' : text).split('\n');
+    parts.forEach((line, i) => {
+      if (i) el.appendChild(document.createElement('br'));
+      el.appendChild(document.createTextNode(line));
+    });
+  }
+
+  /**
+   * In-plugin confirmation. Fail-closed.
+   * Cancel is focused by default. Enter / Escape / overlay click never confirm
+   * the destructive action — only an explicit click on the confirm button does.
+   */
+  function showConfirmModal(opts) {
+    return new Promise((resolve) => {
+      const overlay = $('safeModal');
+      const titleEl = $('safeModalTitle');
+      const bodyEl = $('safeModalBody');
+      const typeWrap = $('safeModalTypeWrap');
+      const typeLabel = $('safeModalTypeLabel');
+      const typeInput = $('safeModalType');
+      const btnCancel = $('safeModalCancel');
+      const btnOk = $('safeModalOk');
+      if (!overlay || !btnCancel || !btnOk) {
+        resolve(false);
+        return;
+      }
+
+      let settled = false;
+      const requireType = opts && opts.requireType ? String(opts.requireType) : '';
+      const danger = !opts || opts.danger !== false;
+
+      function typeMatches() {
+        if (!requireType) return true;
+        const got = (typeInput && typeInput.value) ? typeInput.value.trim() : '';
+        return got.localeCompare(requireType, undefined, { sensitivity: 'accent' }) === 0;
+      }
+
+      function finish(ok) {
+        if (settled) return;
+        settled = true;
+        overlay.classList.add('hidden');
+        document.removeEventListener('keydown', onKey, true);
+        btnCancel.removeEventListener('click', onCancel);
+        btnOk.removeEventListener('click', onOk);
+        overlay.removeEventListener('click', onOverlay);
+        if (typeInput) typeInput.removeEventListener('input', onType);
+        resolve(!!ok);
+      }
+
+      function onCancel(e) {
+        if (e) e.preventDefault();
+        finish(false);
+      }
+      function onOk(e) {
+        if (e) e.preventDefault();
+        if (btnOk.disabled || !typeMatches()) return;
+        finish(true);
+      }
+      function onOverlay(e) {
+        if (e.target === overlay) finish(false);
+      }
+      function onType() {
+        btnOk.disabled = !typeMatches();
+      }
+      function onKey(e) {
+        if (!overlay || overlay.classList.contains('hidden')) return;
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          finish(false);
+          return;
+        }
+        if (e.key === 'Enter') {
+          // Enter never executes the destructive/confirm action
+          e.preventDefault();
+          e.stopPropagation();
+          finish(false);
+        }
+      }
+
+      if (titleEl) titleEl.textContent = (opts && opts.title) || '';
+      setModalMultiline(bodyEl, (opts && (opts.body || opts.detail)) || '');
+      btnCancel.textContent = (opts && opts.cancelLabel) || t('common.cancel');
+      btnOk.textContent = (opts && opts.confirmLabel) || t('common.ok');
+      btnOk.classList.toggle('danger', danger);
+      btnOk.classList.toggle('primary', !danger);
+
+      if (requireType) {
+        typeWrap.classList.remove('hidden');
+        if (typeLabel) typeLabel.textContent = (opts && opts.typeLabel) || t('install.uninstallTypePrompt');
+        if (typeInput) {
+          typeInput.value = '';
+          typeInput.placeholder = requireType;
+        }
+        btnOk.disabled = true;
+      } else {
+        typeWrap.classList.add('hidden');
+        if (typeInput) typeInput.value = '';
+        btnOk.disabled = false;
+      }
+
+      overlay.classList.remove('hidden');
+      document.addEventListener('keydown', onKey, true);
+      btnCancel.addEventListener('click', onCancel);
+      btnOk.addEventListener('click', onOk);
+      overlay.addEventListener('click', onOverlay);
+      if (typeInput) typeInput.addEventListener('input', onType);
+      try { btnCancel.focus(); } catch {}
+    });
+  }
+
+  function snapshotDir() {
+    if (process.platform === 'win32') {
+      const local = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+      return path.join(local, 'Tagia', 'tag-snapshots');
+    }
+    return path.join(os.homedir(), '.tagia', 'tag-snapshots');
+  }
+
+  function snapshotPath() {
+    return path.join(snapshotDir(), 'last-replace.json');
+  }
+
+  function canonicalSnapshotPayload(items) {
+    const rows = (items || []).map((it) => ({
+      id: String(it.id || ''),
+      name: String(it.name || ''),
+      tags: Array.isArray(it.tags) ? it.tags.map(String) : [],
+      annotation: it.annotation != null ? String(it.annotation) : '',
+    }));
+    rows.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    return rows;
+  }
+
+  function writeTagSnapshot(items) {
+    const payloadItems = canonicalSnapshotPayload(items);
+    const canonical = JSON.stringify(payloadItems);
+    const sha256 = crypto.createHash('sha256').update(canonical, 'utf8').digest('hex');
+    const doc = {
+      version: 1,
+      pluginId: PLUGIN_ID,
+      pluginVersion: PLUGIN_VERSION,
+      createdAt: new Date().toISOString(),
+      itemCount: payloadItems.length,
+      sha256,
+      items: payloadItems,
+    };
+    const dir = snapshotDir();
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = snapshotPath() + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8');
+    fs.renameSync(tmp, snapshotPath());
+    return doc;
+  }
+
+  function readTagSnapshot() {
+    const p = snapshotPath();
+    if (!exists(p)) return null;
+    try {
+      const doc = JSON.parse(fs.readFileSync(p, 'utf8'));
+      if (!doc || !Array.isArray(doc.items)) return null;
+      const canonical = JSON.stringify(canonicalSnapshotPayload(doc.items));
+      const sha256 = crypto.createHash('sha256').update(canonical, 'utf8').digest('hex');
+      if (doc.sha256 && String(doc.sha256).toLowerCase() !== sha256.toLowerCase()) {
+        return null;
+      }
+      return doc;
+    } catch {
+      return null;
+    }
+  }
+
   // ---------- config ----------
   function defaultConfig() {
     const home = os.homedir();
@@ -294,6 +472,7 @@
       device: 'auto',
       threshold: 0.35,
       maxTags: 0,
+      tagWriteMode: 'append',
       modeAppend: true,
       skipTagged: false,
       rawtag: false,
@@ -332,6 +511,10 @@
     const c = Object.assign(defaultConfig(), cfg || {});
     c.taggerRoot = (c.taggerRoot || '').trim();
     c.trustedEngine = c.trustedEngine || null;
+    if (c.tagWriteMode !== 'replace' && c.tagWriteMode !== 'append') {
+      c.tagWriteMode = c.modeAppend === false ? 'replace' : 'append';
+    }
+    c.modeAppend = c.tagWriteMode !== 'replace';
     if (c.taggerRoot && !isEngineTrusted(c)) {
       // Keep path visible in Settings for re-trust, but do not treat as ready.
       // Soft badge / ensureWorker will refuse execution until confirmed.
@@ -366,7 +549,8 @@
       device: $('deviceSelect').value,
       threshold: parseFloat($('threshold').value) || 0.35,
       maxTags: parseInt($('maxTags').value, 10) || 0,
-      modeAppend: $('modeAppend').checked,
+      tagWriteMode: ($('modeReplace') && $('modeReplace').checked) ? 'replace' : 'append',
+      modeAppend: !($('modeReplace') && $('modeReplace').checked),
       skipTagged: $('skipTagged').checked,
       rawtag: $('rawtag').checked,
       keepWorker: $('keepWorker').checked,
@@ -387,7 +571,10 @@
     $('threshold').value = String(cfg.threshold ?? 0.35);
     $('thresholdVal').textContent = Number(cfg.threshold ?? 0.35).toFixed(2);
     $('maxTags').value = String(cfg.maxTags ?? 0);
-    $('modeAppend').checked = !!cfg.modeAppend;
+    const replaceOn = (cfg.tagWriteMode === 'replace') || (cfg.modeAppend === false && cfg.tagWriteMode !== 'append');
+    if ($('modeReplace')) $('modeReplace').checked = !!replaceOn;
+    if ($('modeAppend')) $('modeAppend').checked = !replaceOn;
+    syncWriteModeHint();
     $('skipTagged').checked = !!cfg.skipTagged;
     $('rawtag').checked = !!cfg.rawtag;
     $('keepWorker').checked = cfg.keepWorker !== false;
@@ -403,6 +590,20 @@
       $('langSelect').dataset.pref = lang;
     }
     fillModels(null, cfg.model);
+  }
+
+  function isReplaceMode(cfg) {
+    if (cfg && cfg.tagWriteMode === 'replace') return true;
+    if (cfg && cfg.tagWriteMode === 'append') return false;
+    return !!(cfg && cfg.modeAppend === false);
+  }
+
+  function syncWriteModeHint() {
+    const replaceOn = !!( $('modeReplace') && $('modeReplace').checked );
+    const group = $('writeModeGroup');
+    const hint = $('replaceHint');
+    if (group) group.classList.toggle('replace-on', replaceOn);
+    if (hint) hint.classList.toggle('warnish', replaceOn);
   }
 
   /**
@@ -624,7 +825,8 @@
           ent.name === 'venv' ||
           ent.name === '__pycache__' ||
           ent.name === '.git' ||
-          ent.name === 'node_modules'
+          ent.name === 'node_modules' ||
+          ent.name === RUNTIME_DIR_NAME
         ) {
           continue;
         }
@@ -744,9 +946,15 @@
     const rel = path.relative(root, resolved);
     const depth = rel.split(path.sep).filter(Boolean).length;
     if (depth < 2) return false;
-    // Must look like a tagger root (narrow target)
-    if (!isTaggerRoot(resolved)) return false;
-    return true;
+    // Tagia-owned full engine, or Tagia-owned runtime subdirectory only
+    if (isTaggerRoot(resolved)) return true;
+    if (
+      path.basename(resolved) === RUNTIME_DIR_NAME &&
+      isTaggerRoot(path.dirname(resolved))
+    ) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -757,10 +965,18 @@
     const abs = path.resolve(absPath);
     if (!cfg || !cfg.ownedInstallPath) return false;
     if (!samePath(cfg.ownedInstallPath, abs)) return false;
-    if (!cfg.trustedEngine || cfg.trustedEngine.owned !== true) return false;
-    if (!samePath(cfg.trustedEngine.path, abs)) return false;
     if (!markerClaimsPath(abs)) return false;
     if (!isSafeUninstallTarget(abs)) return false;
+    const te = cfg.trustedEngine;
+    if (te && te.owned === true) {
+      // Full Tagia-owned engine: path must match the trusted engine root
+      if (!te.path || !samePath(te.path, abs)) return false;
+      return true;
+    }
+    // User-managed engine: only the Tagia-owned runtime subdirectory is deletable
+    if (path.basename(abs) !== RUNTIME_DIR_NAME) return false;
+    if (cfg.taggerRoot && !samePath(path.dirname(abs), cfg.taggerRoot)) return false;
+    if (te && te.runtimePath && !samePath(te.runtimePath, abs)) return false;
     return true;
   }
 
@@ -787,25 +1003,47 @@
     }
 
     // User-managed: explicit trust only; do not treat on-disk marker as ownership
-    if (te.owned === false) return true;
+    if (te.owned === false) {
+      if (te.runtimePath) {
+        const rt = path.resolve(te.runtimePath);
+        if (!samePath(path.dirname(rt), abs) || path.basename(rt) !== RUNTIME_DIR_NAME) {
+          return false;
+        }
+      }
+      return true;
+    }
     return false;
   }
 
   /**
    * Folder-picker / existing-directory trust. NEVER sets ownedInstallPath or writes marker.
    */
-  function markUserManagedTrusted(cfg, enginePath) {
+  function markUserManagedTrusted(cfg, enginePath, runtimePath) {
     const abs = path.resolve(enginePath);
     const pyManifest = computeEnginePyManifest(abs);
     cfg.taggerRoot = abs;
-    cfg.trustedEngine = {
+    const te = {
       path: abs,
       trustedAt: new Date().toISOString(),
       owned: false,
       pyManifest,
     };
-    // Do not touch ownedInstallPath
+    if (runtimePath) {
+      const rt = path.resolve(runtimePath);
+      te.runtimePath = rt;
+      cfg.ownedInstallPath = rt;
+    }
+    cfg.trustedEngine = te;
+    // Never claim the user engine root as owned / deletable
     return cfg;
+  }
+
+  /** After creating <engine>/tagia-runtime, mark that subdirectory Tagia-owned. */
+  function attachOwnedRuntime(cfg, enginePath, runtimePath) {
+    const absEngine = path.resolve(enginePath);
+    const absRt = path.resolve(runtimePath);
+    writeOwnershipMarker(absRt);
+    return markUserManagedTrusted(cfg, absEngine, absRt);
   }
 
   /**
@@ -873,10 +1111,66 @@
   }
 
   function venvPython(root) {
+    if (!root) return '';
     if (process.platform === 'win32') {
       return path.join(root, 'venv', 'Scripts', 'python.exe');
     }
     return path.join(root, 'venv', 'bin', 'python');
+  }
+
+  function isUserManagedCfg(cfg) {
+    return !!(cfg && cfg.trustedEngine && cfg.trustedEngine.owned === false);
+  }
+
+  /**
+   * Directory that holds Tagia's venv, lock files, and copied runtime config.
+   * User-managed engines: <engine>/tagia-runtime (Tagia-owned subdirectory).
+   * Tagia-owned engines: the engine root itself.
+   */
+  function runtimeHome(cfg) {
+    if (!cfg || !cfg.taggerRoot) return '';
+    if (cfg.trustedEngine && cfg.trustedEngine.runtimePath) {
+      return path.resolve(cfg.trustedEngine.runtimePath);
+    }
+    if (isUserManagedCfg(cfg)) {
+      if (cfg.ownedInstallPath && samePath(path.dirname(cfg.ownedInstallPath), cfg.taggerRoot)
+          && path.basename(cfg.ownedInstallPath) === RUNTIME_DIR_NAME) {
+        return path.resolve(cfg.ownedInstallPath);
+      }
+      return path.join(path.resolve(cfg.taggerRoot), RUNTIME_DIR_NAME);
+    }
+    return path.resolve(cfg.taggerRoot);
+  }
+
+  function venvPythonFromCfg(cfg) {
+    return venvPython(runtimeHome(cfg));
+  }
+
+  /**
+   * Create or reuse <engine>/tagia-runtime. Never overwrite a non-owned existing folder.
+   */
+  function prepareUserManagedRuntime(engineRoot, logFn) {
+    const log = logFn || (() => {});
+    const abs = path.resolve(engineRoot);
+    const dest = path.join(abs, RUNTIME_DIR_NAME);
+    if (exists(dest)) {
+      if (isSymlinkOrJunction(dest)) {
+        throw new Error('tagia-runtime is a symlink/junction; refusing to use it: ' + dest);
+      }
+      if (!markerClaimsPath(dest)) {
+        let left = [];
+        try { left = fs.readdirSync(dest); } catch {}
+        if (left.length) {
+          throw new Error(
+            'Refusing to overwrite existing folder (not Tagia-owned): ' + dest
+          );
+        }
+      }
+    } else {
+      fs.mkdirSync(dest, { recursive: true });
+    }
+    log('Tagia runtime directory: ' + dest, 'ok');
+    return dest;
   }
 
   function isWindowsStoreStub(p) {
@@ -902,7 +1196,7 @@
       cfg.taggerRoot &&
       isEngineTrusted(cfg)
     ) {
-      push(venvPython(cfg.taggerRoot));
+      push(venvPythonFromCfg(cfg));
     }
 
     const home = os.homedir();
@@ -1010,7 +1304,7 @@
     // CRITICAL: worker must run inside tagger venv (has onnxruntime / deps).
     // Only use engine venv when that engine is explicitly trusted.
     if (cfg.taggerRoot && isEngineTrusted(cfg)) {
-      const vp = venvPython(cfg.taggerRoot);
+      const vp = venvPythonFromCfg(cfg);
       if (exists(vp)) return vp;
     }
     if (cfg.pythonPath && exists(cfg.pythonPath) && !isWindowsStoreStub(cfg.pythonPath)) {
@@ -1027,8 +1321,11 @@
     return list.some((p) => /CUDA|Tensorrt|Dml|ROCM|CoreML/i.test(String(p)));
   }
 
-  async function probeVenvProviders(taggerRoot) {
-    const vpy = venvPython(taggerRoot);
+  async function probeVenvProviders(taggerRootOrCfg) {
+    const root = (taggerRootOrCfg && typeof taggerRootOrCfg === 'object')
+      ? runtimeHome(taggerRootOrCfg)
+      : taggerRootOrCfg;
+    const vpy = venvPython(root);
     if (!exists(vpy)) return { ok: false, providers: [], error: 'no venv' };
     const r = await runCmd(vpy, [
       '-c',
@@ -1591,11 +1888,11 @@
     if (!isEngineTrusted(cfg)) {
       throw new Error(t('errors.engineUntrusted'));
     }
-    const vpy = venvPython(cfg.taggerRoot);
+    const vpy = venvPythonFromCfg(cfg);
     if (!exists(vpy)) {
       throw new Error(t('errors.engineDetail'));
     }
-    // Always use trusted engine venv — never fall back to arbitrary candidate python
+    // Always use trusted Tagia runtime venv — never fall back to arbitrary candidate python
     const py = vpy;
     const script = workerScript();
     if (!exists(script)) throw new Error('worker.py が見つかりません: ' + script);
@@ -1758,7 +2055,7 @@
   function softEnvBadge() {
     const cfg = loadConfig();
     const layoutOk = !!(cfg.taggerRoot && isTaggerRoot(cfg.taggerRoot));
-    const venvOk = !!(layoutOk && exists(venvPython(cfg.taggerRoot)));
+    const venvOk = !!(layoutOk && exists(venvPythonFromCfg(cfg)));
     markStep('step-clone', layoutOk);
     markStep('step-venv', venvOk);
     if (layoutOk && venvOk && isEngineTrusted(cfg)) {
@@ -1802,7 +2099,7 @@
       cfg &&
       cfg.taggerRoot &&
       isTaggerRoot(cfg.taggerRoot) &&
-      exists(venvPython(cfg.taggerRoot)) &&
+      exists(venvPythonFromCfg(cfg)) &&
       isEngineTrusted(cfg)
     );
   }
@@ -1998,6 +2295,120 @@
     });
   }
 
+  async function confirmReplaceTags(count) {
+    try {
+      const body = [
+        t('tag.replaceConfirmMsg'),
+        '',
+        t('tag.replaceConfirmDetail', { count: String(count) }),
+        '',
+        t('tag.replaceSnapshotNote'),
+        t('tag.replaceIrreversible'),
+      ].join('\n');
+      const ok = await showConfirmModal({
+        title: t('tag.replaceConfirmTitle'),
+        body,
+        confirmLabel: t('tag.replaceConfirmAction'),
+        cancelLabel: t('common.cancel'),
+        danger: true,
+      });
+      if (!ok) logMain(t('tag.replaceCancel'), 'warn');
+      return ok;
+    } catch (e) {
+      logMain(t('tag.replaceDialogFailed') + ': ' + (e && e.message ? e.message : e), 'err');
+      return false;
+    }
+  }
+
+  async function confirmRuntimeSwitch(mode, runtimePath) {
+    try {
+      const key = mode === 'gpu' ? 'install.switchConfirmGpu' : 'install.switchConfirmCpu';
+      const ok = await showConfirmModal({
+        title: t('install.switchConfirmTitle'),
+        body: t(key, { path: runtimePath }),
+        confirmLabel: t('install.switchConfirmAction'),
+        cancelLabel: t('common.cancel'),
+        danger: true,
+      });
+      return ok;
+    } catch (e) {
+      logInst(t('install.switchDialogFailed') + ': ' + (e && e.message ? e.message : e), 'err');
+      return false;
+    }
+  }
+
+  async function restoreLastReplacedTags() {
+    const snap = readTagSnapshot();
+    if (!snap || !snap.items || !snap.items.length) {
+      logMain(t('tag.restoreNone'), 'warn');
+      try {
+        await eagle.dialog.showMessageBox({
+          title: t('app.title'),
+          message: t('tag.restoreNone'),
+          buttons: [t('common.ok')],
+          type: 'info',
+        });
+      } catch {}
+      return;
+    }
+    const ok = await showConfirmModal({
+      title: t('tag.restoreConfirmTitle'),
+      body: t('tag.restoreConfirmDetail', {
+        count: String(snap.itemCount || snap.items.length),
+        when: snap.createdAt || '',
+      }),
+      confirmLabel: t('tag.restoreBtn'),
+      cancelLabel: t('common.cancel'),
+      danger: false,
+    });
+    if (!ok) return;
+
+    let restored = 0;
+    let missing = 0;
+    const ids = snap.items.map((r) => r && r.id).filter(Boolean);
+    let loaded = [];
+    try {
+      if (typeof eagle.item.getByIds === 'function') {
+        loaded = await eagle.item.getByIds(ids);
+      }
+    } catch {}
+    const byId = new Map();
+    (loaded || []).forEach((it) => {
+      if (it && it.id) byId.set(String(it.id), it);
+    });
+    for (const row of snap.items) {
+      if (!row || !row.id) {
+        missing++;
+        continue;
+      }
+      try {
+        let item = byId.get(String(row.id));
+        if (!item && typeof eagle.item.getById === 'function') {
+          item = await eagle.item.getById(row.id);
+        }
+        if (!item) {
+          missing++;
+          continue;
+        }
+        item.tags = Array.isArray(row.tags) ? row.tags.slice() : [];
+        if (row.annotation != null) item.annotation = row.annotation;
+        await item.save();
+        restored++;
+      } catch (e) {
+        missing++;
+        logMain('restore fail ' + (row.name || row.id) + ': ' + (e && e.message ? e.message : e), 'err');
+      }
+    }
+    logMain(t('tag.restoreDone', { ok: String(restored), missing: String(missing) }), restored ? 'ok' : 'warn');
+    try {
+      await eagle.notification.show({
+        title: t('app.title'),
+        body: t('tag.restoreDone', { ok: String(restored), missing: String(missing) }),
+        duration: 4000,
+      });
+    } catch {}
+  }
+
   async function runTagging() {
     if (tagging) return;
     const cfg = readUiConfig();
@@ -2030,6 +2441,19 @@
       }
     }
 
+    const replacing = isReplaceMode(cfg);
+    if (replacing) {
+      const confirmed = await confirmReplaceTags(items.length);
+      if (!confirmed) return;
+      try {
+        const snap = writeTagSnapshot(items);
+        logMain(t('tag.snapshotSaved', { count: String(snap.itemCount) }), 'ok');
+      } catch (e) {
+        logMain(t('tag.replaceDialogFailed') + ': ' + (e && e.message ? e.message : e), 'err');
+        return;
+      }
+    }
+
     tagging = true;
     stopRequested = false;
     $('btnTag').disabled = true;
@@ -2045,7 +2469,7 @@
 
     try {
       if (cfg.device === 'gpu') {
-        const probe = await probeVenvProviders(cfg.taggerRoot);
+        const probe = await probeVenvProviders(cfg);
         if (!probe.ok || !isGpuProviderList(probe.providers)) {
           setBadge('err', 'app.statusError', true);
           throw new Error('GPU provider unavailable. Install GPU package or use Auto/CPU.');
@@ -2122,7 +2546,7 @@
           if (m && m.ok && m.tags) {
             try {
               await applyTagsToItem(job.item, m.tags, {
-                append: cfg.modeAppend,
+                append: !isReplaceMode(cfg),
                 writeAnnotation: cfg.writeAnnotation,
               });
               ok++;
@@ -2234,7 +2658,7 @@
     const py = found.ok ? found.path : resolvePython(cfg);
     $('stPython').textContent = found.ok ? `${py} (${(found.version || '').split(' ')[0]})` : (py + ' (未確認)');
     $('stRoot').textContent = cfg.taggerRoot || '—';
-    const vp = cfg.taggerRoot ? venvPython(cfg.taggerRoot) : '';
+    const vp = cfg.taggerRoot ? venvPythonFromCfg(cfg) : '';
     const hasVenv = exists(vp);
     const layoutOk = !!(cfg.taggerRoot && isTaggerRoot(cfg.taggerRoot));
     $('stVenv').textContent = hasVenv ? vp : 'なし';
@@ -2445,6 +2869,7 @@
         markerClaimsPath(installDir) &&
         isEngineTrusted(Object.assign({}, cfg, { taggerRoot: installDir }))
       ) {
+        pluginCreatedEngine = true;
         logInst('Reusing Tagia-owned engine recorded in settings: ' + installDir, 'ok');
       } else if (
         cfg.taggerRoot &&
@@ -2495,13 +2920,24 @@
       markStep('step-clone', true);
       $('taggerRoot').value = installDir;
 
-      // 3) venv + pinned packages (from this plugin, not mutable remote requirements)
+      // 3) venv + pinned packages — Tagia-owned engine root, or isolated tagia-runtime
       setBusy('3/3 venv + packages', 'Preparing virtualenv…');
-      const vpy = venvPython(installDir);
+      let runtimeDir = installDir;
+      if (!pluginCreatedEngine) {
+        try {
+          runtimeDir = prepareUserManagedRuntime(installDir, logInst);
+        } catch (e) {
+          logInst(String(e && e.message ? e.message : e), 'err');
+          markStep('step-venv', false);
+          return;
+        }
+        logInst('User engine is read-only. Runtime/venv/packages go in: ' + runtimeDir, 'ok');
+      }
+      const vpy = venvPython(runtimeDir);
       if (!exists(vpy)) {
         logInst('Creating venv…', 'info');
-        const v = await runCmd(py, ['-m', 'venv', path.join(installDir, 'venv')], {
-          cwd: installDir,
+        const v = await runCmd(py, ['-m', 'venv', path.join(runtimeDir, 'venv')], {
+          cwd: runtimeDir,
           onOut: (t) => { if (t.trim()) logInst(t.trim(), 'info'); },
           onErr: (t) => { if (t.trim()) logInst(t.trim(), 'info'); },
         });
@@ -2519,7 +2955,7 @@
       // Bootstrap exact pip version with hash (never unconstrained --upgrade pip)
       setBusy('3/3 venv + packages', 'Installing pinned pip…');
       const pipPinSrc = path.join(pluginPythonDir(), PIP_PINNED);
-      const pipPinDst = path.join(installDir, PIP_PINNED);
+      const pipPinDst = path.join(runtimeDir, PIP_PINNED);
       if (exists(pipPinSrc)) {
         try { fs.copyFileSync(pipPinSrc, pipPinDst); } catch {}
       }
@@ -2529,7 +2965,7 @@
           vpy,
           ['-m', 'pip', 'install', '--disable-pip-version-check', '--require-hashes', '-r', pipPinDst],
           {
-            cwd: installDir,
+            cwd: runtimeDir,
             onOut: (t) => { if (t.trim()) logInst(t.trim()); },
             onErr: (t) => { if (t.trim()) logInst(t.trim()); },
           }
@@ -2540,8 +2976,8 @@
       }
 
       setBusy('3/3 venv + packages', 'Installing hash-locked deps…');
-      copyPluginSecurityFiles(installDir, logInst);
-      const lockedReq = path.join(installDir, REQ_LOCKED_CPU);
+      copyPluginSecurityFiles(runtimeDir, logInst);
+      const lockedReq = path.join(runtimeDir, REQ_LOCKED_CPU);
       if (!exists(lockedReq)) {
         logInst('Missing ' + REQ_LOCKED_CPU + ' — cannot install safely', 'err');
         markStep('step-venv', false);
@@ -2557,7 +2993,7 @@
           '-r', lockedReq,
         ],
         {
-          cwd: installDir,
+          cwd: runtimeDir,
           onOut: (t) => { if (t.trim()) logInst(t.trim()); },
           onErr: (t) => { if (t.trim()) logInst(t.trim()); },
         }
@@ -2571,22 +3007,15 @@
       logInst('Hash-locked dependencies installed', 'ok');
       markStep('step-venv', true);
 
-      // save config + trust: only newly created engines are owned/deletable
+      // save config + trust: only newly created engines are owned/deletable as a whole
       const next = readUiConfig();
       next.pythonPath = exists(vpy) ? '' : py;
       next.installDir = installDir;
+      next.taggerRoot = installDir;
       if (pluginCreatedEngine) {
         markOwnedEngineTrusted(next, installDir);
       } else {
-        // Existing / user-managed path: trust for execution only, never claim ownership
-        markUserManagedTrusted(next, installDir);
-        // Preserve prior ownedInstallPath only if it still matches an external+marker owned engine
-        if (next.ownedInstallPath && !canRecursivelyDeleteEngine(next, next.ownedInstallPath)) {
-          // if we switched away from owned path, clear deletable record when not the same path
-          if (!samePath(next.ownedInstallPath, installDir)) {
-            /* keep previous ownedInstallPath for uninstall of old install if still valid */
-          }
-        }
+        attachOwnedRuntime(next, installDir, runtimeDir);
       }
       applyConfigToUi(next);
       saveConfig(next);
@@ -2611,9 +3040,15 @@
       logInst(t('errors.engineUntrusted'), 'err');
       return;
     }
-    const vpy = venvPython(cfg.taggerRoot);
+    const rt = runtimeHome(cfg);
+    const vpy = venvPython(rt);
     if (!exists(vpy)) {
       logInst('venv がありません', 'err');
+      return;
+    }
+    const switchOk = await confirmRuntimeSwitch(mode, rt);
+    if (!switchOk) {
+      logInst(t('install.switchCancel'), 'warn');
       return;
     }
 
@@ -2633,7 +3068,7 @@
           onErr: (t) => { if (t.trim()) logInst(t.trim()); },
         });
         setBusy(null, 'onnxruntime-gpu をインストール中…（時間がかかります）');
-        const gpuLock = path.join(cfg.taggerRoot, REQ_LOCKED_GPU);
+        const gpuLock = path.join(rt, REQ_LOCKED_GPU);
         const gpuLockSrc = path.join(pluginPythonDir(), REQ_LOCKED_GPU);
         if (!exists(gpuLock) && exists(gpuLockSrc)) {
           try { fs.copyFileSync(gpuLockSrc, gpuLock); } catch {}
@@ -2657,7 +3092,7 @@
         if (r.code !== 0) {
           logInst('GPU インストール失敗。CPU lock に戻します。', 'err');
           setBusy(null, 'CPU にフォールバック中…');
-          const cpuLock = path.join(cfg.taggerRoot, REQ_LOCKED_CPU);
+          const cpuLock = path.join(rt, REQ_LOCKED_CPU);
           if (exists(cpuLock)) {
             await runCmd(vpy, [
               '-m', 'pip', 'install',
@@ -2674,7 +3109,7 @@
         }
         // Verify providers from venv
         setBusy(null, 'GPU プロバイダを確認中…');
-        const probe = await probeVenvProviders(cfg.taggerRoot);
+        const probe = await probeVenvProviders(cfg);
         logInst('onnxruntime ' + (probe.version || '?') + ' providers: ' + (probe.providers || []).join(', '), 'info');
         if (!probe.ok || !isGpuProviderList(probe.providers)) {
           logInst('GPU パッケージは入ったように見えますが CUDA プロバイダがありません。', 'err');
@@ -2702,7 +3137,7 @@
           onErr: (t) => { if (t.trim()) logInst(t.trim()); },
         });
         setBusy(null, 'CPU hash-lock をインストール中…');
-        let cpuLock = path.join(cfg.taggerRoot, REQ_LOCKED_CPU);
+        let cpuLock = path.join(rt, REQ_LOCKED_CPU);
         const cpuLockSrc = path.join(pluginPythonDir(), REQ_LOCKED_CPU);
         if (!exists(cpuLock) && exists(cpuLockSrc)) {
           try { fs.copyFileSync(cpuLockSrc, cpuLock); } catch {}
@@ -2768,21 +3203,45 @@
     }
 
     const detailLines = [];
-    detailLines.push('[Tagia-owned engine / venv only]');
+    detailLines.push(t('install.uninstallConfirmMsg'));
+    detailLines.push('');
+    detailLines.push(t('install.uninstallPermanent'));
+    detailLines.push('');
     targets.forEach((p) => detailLines.push('· ' + p));
     detailLines.push('');
     detailLines.push(t('install.uninstallNoPython'));
     detailLines.push(t('install.uninstallNoHfCache'));
     detailLines.push(t('install.uninstallSafetyNote'));
 
-    const conf = await eagle.dialog.showMessageBox({
+    const step1 = await showConfirmModal({
       title: t('install.uninstallConfirmTitle'),
-      message: t('install.uninstallConfirmMsg'),
-      detail: detailLines.join('\n'),
-      buttons: [t('common.delete'), t('common.cancel')],
-      type: 'warning',
+      body: detailLines.join('\n'),
+      confirmLabel: t('install.uninstallContinue'),
+      cancelLabel: t('common.cancel'),
+      danger: true,
     });
-    if (conf.response !== 0) {
+    if (!step1) {
+      logInst(t('install.uninstallCancel'), 'warn');
+      return;
+    }
+
+    const folderName = path.basename(targets[0]);
+    const step2 = await showConfirmModal({
+      title: t('install.uninstallStep2Title'),
+      body: [
+        t('install.uninstallPermanent'),
+        '',
+        targets[0],
+        '',
+        t('install.uninstallTypePrompt'),
+      ].join('\n'),
+      confirmLabel: t('install.uninstallDeleteForever'),
+      cancelLabel: t('common.cancel'),
+      danger: true,
+      requireType: folderName,
+      typeLabel: t('install.uninstallTypePrompt'),
+    });
+    if (!step2) {
       logInst(t('install.uninstallCancel'), 'warn');
       return;
     }
@@ -2870,35 +3329,37 @@
    */
   async function confirmTrustEngine(enginePath) {
     try {
-      if (!pluginReady || !eagle.dialog || !eagle.dialog.showMessageBox) {
+      if (!pluginReady || !$('safeModal')) {
         logMain(t('settings.trustEngineDialogFailed'), 'err');
         return false;
       }
       const abs = path.resolve(enginePath);
-      const vpy = venvPython(abs);
+      const runtime = path.join(abs, RUNTIME_DIR_NAME);
+      const vpy = venvPython(runtime);
       const pyLine = exists(vpy) ? vpy : t('settings.trustEngineNoVenv');
-      // Folder picker always trusts as user-managed (never deletable ownership)
       const kind = t('settings.trustKindUser');
       const detail = [
         t('settings.trustEngineDetail'),
         '',
         t('settings.trustEnginePathLabel') + ': ' + abs,
+        t('settings.trustEngineRuntimeLabel') + ': ' + runtime,
         t('settings.trustEnginePythonLabel') + ': ' + pyLine,
         t('settings.trustEngineKindLabel') + ': ' + kind,
+        '',
+        t('settings.trustEngineWillCreateRuntime'),
+        t('settings.trustEngineNoOverwrite'),
+        t('settings.trustEnginePackages'),
         t('settings.trustEngineNotDeleted'),
       ].join('\n');
-      const r = await eagle.dialog.showMessageBox({
+      const ok = await showConfirmModal({
         title: t('settings.trustEngineTitle'),
-        message: t('settings.trustEngineTitle'),
-        detail,
-        buttons: [t('settings.trustEngineConfirm'), t('common.cancel')],
-        type: 'warning',
+        body: detail,
+        confirmLabel: t('settings.trustEngineConfirm'),
+        cancelLabel: t('common.cancel'),
+        danger: false,
       });
-      if (!r || typeof r.response !== 'number') {
-        logMain(t('settings.trustEngineDialogFailed'), 'err');
-        return false;
-      }
-      return r.response === 0;
+      if (!ok) return false;
+      return true;
     } catch (e) {
       logMain(t('settings.trustEngineDialogFailed') + ': ' + (e && e.message ? e.message : e), 'err');
       return false;
@@ -2969,6 +3430,21 @@
     });
 
     $('btnTag').addEventListener('click', () => runTagging());
+    if ($('modeAppend')) {
+      $('modeAppend').addEventListener('change', () => {
+        syncWriteModeHint();
+        try { saveConfig(readUiConfig()); } catch {}
+      });
+    }
+    if ($('modeReplace')) {
+      $('modeReplace').addEventListener('change', () => {
+        syncWriteModeHint();
+        try { saveConfig(readUiConfig()); } catch {}
+      });
+    }
+    if ($('btnRestoreTags')) {
+      $('btnRestoreTags').addEventListener('click', () => restoreLastReplacedTags());
+    }
     $('btnStop').addEventListener('click', () => {
       if (!tagging) return;
       stopRequested = true;
