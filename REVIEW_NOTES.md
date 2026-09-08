@@ -1,4 +1,4 @@
-# Tagia — notes for Eagle reviewers (v1.4.9)
+# Tagia — notes for Eagle reviewers (v1.4.10)
 
 ## What this plugin does
 
@@ -45,6 +45,7 @@ Install and GPU switch refuse other platforms with an in-UI explanation.
 4. Confirm tags appear on the item; optional Note block `<!-- Tagia -->`.
 5. Uninstall from Install tab: only the Tagia-owned engine path is listed; two confirmations; type folder name; Cancel default; system Python remains.
 6. Tag tab: Append / Replace radios. Replace shows count + no-undo text + snapshot restore.
+7. Restore last replaced tags writes **tags only**. Sequence: replace → add/edit a note in Eagle → restore tags. The new note must survive. If a Tagia block exists, only that block is updated.
 7. Settings → Browse a user engine: trust dialog lists `tagia-runtime`; Install does not overwrite `run.py` / `tagger/`.
 
 ## Package hygiene

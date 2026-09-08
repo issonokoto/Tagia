@@ -52,7 +52,7 @@
     "restoreBtn": "還原上次取代的標籤",
     "restoreNone": "沒有可還原的標籤快照",
     "restoreConfirmTitle": "還原原始標籤？",
-    "restoreConfirmDetail": "快照中的項目：{{count}}\n建立時間：{{when}}\n\n將把快照中的標籤寫回並儲存各項目。預設為取消。Enter 不會還原。",
+    "restoreConfirmDetail": "快照中的項目：{{count}}\n建立時間：{{when}}\n\n僅還原標籤，不會覆寫整段備註。若備註中已有 Tagia 區塊，則只更新該區塊以符合還原後的標籤；其餘備註（包括打標籤之後的增補）會保留。預設取消。Enter 不會還原。",
     "restoreDone": "已還原 {{ok}} 項標籤（缺失 {{missing}} 項）",
     "skipTagged": "跳過已標籤",
     "rawtag": "原始標籤（底線）",

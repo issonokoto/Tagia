@@ -52,7 +52,7 @@
     "restoreBtn": "还原上次替换的标签",
     "restoreNone": "没有可还原的标签快照",
     "restoreConfirmTitle": "还原原始标签？",
-    "restoreConfirmDetail": "快照中的项目：{{count}}\n创建时间：{{when}}\n\n将把快照中的标签写回并保存各项目。默认操作为取消。Enter 不会还原。",
+    "restoreConfirmDetail": "快照中的项目：{{count}}\n创建时间：{{when}}\n\n仅还原标签，不会覆盖整段备注。若备注中已有 Tagia 区块，则只更新该区块以匹配还原后的标签；其余备注（包括打标签之后的增补）会保留。默认取消。Enter 不会还原。",
     "restoreDone": "已还原 {{ok}} 项标签（缺失 {{missing}} 项）",
     "skipTagged": "跳过已打标签",
     "rawtag": "原始标签（下划线）",

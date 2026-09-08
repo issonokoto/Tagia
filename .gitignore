@@ -23,6 +23,9 @@ __pycache__/
 # Tagia ownership / local config artifacts
 .tagia-owned.json
 
+# Historical covers — never ship in the plugin package
+_cover_backup/
+
 # Models / caches
 .cache/
 *.onnx

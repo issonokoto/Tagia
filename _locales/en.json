@@ -52,7 +52,7 @@
     "restoreBtn": "Restore last replaced tags",
     "restoreNone": "No tag snapshot to restore",
     "restoreConfirmTitle": "Restore original tags?",
-    "restoreConfirmDetail": "Items in snapshot: {{count}}\nCreated: {{when}}\n\nThis writes the snapshotted tags back and saves each item. Cancel is the default. Enter does not restore.",
+    "restoreConfirmDetail": "Items in snapshot: {{count}}\nCreated: {{when}}\n\nThis restores tags only. Notes are not overwritten. If a Tagia block already exists in the note, only that block is updated to match the restored tags; any other note text (including edits made after tagging) is kept. Cancel is the default. Enter does not restore.",
     "restoreDone": "Restored tags on {{ok}} items ({{missing}} missing)",
     "skipTagged": "Skip already tagged",
     "rawtag": "Raw tags (underscore)",

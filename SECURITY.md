@@ -1,4 +1,4 @@
-# Tagia security & supply-chain notes (v1.4.9)
+# Tagia security & supply-chain notes (v1.4.10)
 
 ## Engine (bundled)
 

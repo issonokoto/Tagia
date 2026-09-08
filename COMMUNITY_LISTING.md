@@ -1,4 +1,4 @@
-# Tagia — Eagle Community listing copy (v1.4.9)
+# Tagia — Eagle Community listing copy (v1.4.10)
 
 **4 languages = same sections and same disclosures.**  
 Paste only **Name / Description / Introduction** into each language tab.
@@ -17,7 +17,7 @@ Leave empty if you prefer — never use placeholders like `xxxx` or bare `https:
 
 **Introduction:**
 
-Tagia is a local AI batch image-tagging plugin for Eagle. It processes the currently selected images, can append tags or (after a fail-closed confirmation with item count, snapshot, and restore) replace tags, keep the model loaded between consecutive batches, and update only the Tagia block in the Note field while preserving other notes. User-managed engines are not modified in place: Tagia stores venv and packages in a Tagia-owned `tagia-runtime` subdirectory. Uninstall recursively and permanently deletes only that Tagia-owned directory after two confirmations (including typing the folder name); Cancel is the default.
+Tagia is a local AI batch image-tagging plugin for Eagle. It processes the currently selected images, can append tags or (after a fail-closed confirmation with item count, snapshot, and restore) replace tags, keep the model loaded between consecutive batches, and update only the Tagia block in the Note field while preserving other notes. Restoring a replacement writes tags only and does not overwrite the whole note. User-managed engines are not modified in place: Tagia stores venv and packages in a Tagia-owned `tagia-runtime` subdirectory. Uninstall recursively and permanently deletes only that Tagia-owned directory after two confirmations (including typing the folder name); Cancel is the default.
 
 Complete setup and the core workflow require **Windows x86_64 with CPython 3.10**. Dependency install uses a hash-locked wheel set (`requirements-locked-win-amd64.txt`). **macOS and Linux are not supported** for one-click setup in this release.
 

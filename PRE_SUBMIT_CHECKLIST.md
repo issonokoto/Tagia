@@ -5,7 +5,7 @@ Use before every Eagle Community upload. Based on [Review Criteria](https://deve
 ## Package
 
 - [ ] Built with Eagle package flow or clean zip of **runtime files only**
-- [ ] No `.git/`, `venv/`, `__pycache__/`, `*.pyc`, `_cover_backup/`, secrets, nested unrelated zips
+- [ ] No `.git/`, `venv/`, `__pycache__/`, `*.pyc`, `_cover_backup/` (must not exist in the packaged tree), secrets, nested unrelated zips
 - [ ] **Before pack:** wipe caches: `Get-ChildItem -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force`
 - [ ] Open the `.eagleplugin`/zip and confirm **no** `python/__pycache__/`
 - [ ] `manifest.json`: correct version, `devTools: false`, `platform`/`arch` match claims
@@ -18,6 +18,7 @@ Use before every Eagle Community upload. Based on [Review Criteria](https://deve
 - [ ] Models: only `models-pinned.json` allowlist; no legacy unpinned UI options
 - [ ] Uninstall: ownership marker only; no shared HF cache deletion; two confirmations; type folder name; Cancel default; Enter does not delete
 - [ ] Replace mode: radio (not checkbox), fail-closed confirm with count, snapshot + restore
+- [ ] Restore last replaced tags writes **tags only** (never whole-note overwrite; Tagia block only if already present)
 - [ ] User-managed engine: no in-place venv/file overwrite; `tagia-runtime` subdirectory only
 - [ ] winget / Python installer: exact version + verification paths unchanged
 - [ ] Listing matches behavior (Python install persists, HF first download + **shared cache retained**, Windows-only)

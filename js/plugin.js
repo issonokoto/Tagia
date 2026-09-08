@@ -21,7 +21,7 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.9';
+  const PLUGIN_VERSION = '1.4.10';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
   /** Tagia-owned runtime + venv for user-managed engines (never the user engine root). */
   const RUNTIME_DIR_NAME = 'tagia-runtime';
@@ -411,18 +411,29 @@
   }
 
   function canonicalSnapshotPayload(items) {
-    const rows = (items || []).map((it) => ({
-      id: String(it.id || ''),
-      name: String(it.name || ''),
-      tags: Array.isArray(it.tags) ? it.tags.map(String) : [],
-      annotation: it.annotation != null ? String(it.annotation) : '',
-    }));
+    const rows = (items || []).map((it) => {
+      const row = {
+        id: String(it.id || ''),
+        name: String(it.name || ''),
+        tags: Array.isArray(it.tags) ? it.tags.map(String) : [],
+      };
+      // Legacy snapshots (v1.4.9) stored annotation for hashing only.
+      // New snapshots omit it so restore cannot overwrite notes.
+      if (Object.prototype.hasOwnProperty.call(it, 'annotation')) {
+        row.annotation = it.annotation != null ? String(it.annotation) : '';
+      }
+      return row;
+    });
     rows.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     return rows;
   }
 
   function writeTagSnapshot(items) {
-    const payloadItems = canonicalSnapshotPayload(items);
+    const payloadItems = canonicalSnapshotPayload(items).map((row) => ({
+      id: row.id,
+      name: row.name,
+      tags: row.tags,
+    }));
     const canonical = JSON.stringify(payloadItems);
     const sha256 = crypto.createHash('sha256').update(canonical, 'utf8').digest('hex');
     const doc = {
@@ -2391,7 +2402,13 @@
           continue;
         }
         item.tags = Array.isArray(row.tags) ? row.tags.slice() : [];
-        if (row.annotation != null) item.annotation = row.annotation;
+        // Restore tags only. Never overwrite the whole note.
+        // If a Tagia block already exists, update that block to match restored
+        // tags and leave every other note (including later Eagle edits) intact.
+        const prevNote = item.annotation != null ? String(item.annotation) : '';
+        if (TAGIA_BLOCK_RE.test(prevNote) && item.tags.length) {
+          item.annotation = mergeAnnotationSafe(prevNote, item.tags.join(', '));
+        }
         await item.save();
         restored++;
       } catch (e) {

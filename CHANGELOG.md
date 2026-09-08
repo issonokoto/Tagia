@@ -7,6 +7,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.10] — 2026-09-07
+
+### Security
+
+- **Restore last replaced tags restores tags only.** It no longer assigns the snapshot’s old note to `item.annotation`. Later Eagle note edits survive. If a `<!-- Tagia -->` block already exists, only that block is updated to match the restored tags; all other note text is kept. New snapshots no longer store notes.
+
+### Package
+
+- Removed `_cover_backup/` from the plugin tree (unused duplicate covers). Historical files remain in git history, not in the release package.
+
+---
+
 ## [1.4.9] — 2026-09-06
 
 ### Security
@@ -182,44 +194,40 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## Community “What’s new” (paste-ready) — v1.4.9
+## Community “What’s new” (paste-ready) — v1.4.10
 
 ### English
 
 ```
-v1.4.9 — Safer tag replace, isolated user engines, uninstall confirmations
+v1.4.10 — Restore tags only; drop unused cover backups
 
-- Append and Replace are separate choices. Replace asks for confirmation with the item count, states that existing tags will be removed, saves a snapshot, and offers batch restore. Cancel is the default; Enter does not confirm.
-- User-managed engines are not modified in place. Tagia runtime, venv, and packages go only in a Tagia-owned tagia-runtime folder.
-- Uninstall states that the listed directory is recursively and permanently deleted with no undo. Two confirmations, including typing the folder name. Cancel is the default; Enter does not delete.
+- Restore last replaced tags writes tags only. It does not overwrite the whole note. Later note edits survive. If a Tagia block already exists, only that block is updated.
+- Removed unused _cover_backup/ from the package (duplicate old covers).
 ```
 
 ### 日本語
 
 ```
-v1.4.9 — タグ置き換えの確認、ユーザーエンジンの隔離、アンインストール確認
+v1.4.10 — タグのみ復元、未使用のカバーバックアップを削除
 
-- 追加と置き換えを別の選択に分離。置き換えは件数付きの確認、既存タグ削除の明示、スナップショット保存、一括復元に対応。既定はキャンセル。Enter では実行しません。
-- ユーザー管理エンジンは直接変更しません。ランタイム・venv・パッケージは Tagia 所有の tagia-runtime にだけ置きます。
-- アンインストールは対象フォルダ全体を再帰的かつ永続的に削除し、元に戻せないと明記。二重確認とフォルダ名入力。既定はキャンセル。Enter では削除しません。
+- 「置き換えたタグを復元」はタグだけ書き戻します。メモ全体は上書きしません。あとから書いたメモは残ります。Tagia ブロックがある場合のみそのブロックを更新します。
+- 未使用の _cover_backup/（古いカバーの複製）をパッケージから削除しました。
 ```
 
 ### 简体中文
 
 ```
-v1.4.9 — 更安全的标签替换、隔离用户引擎、卸载确认
+v1.4.10 — 仅还原标签；移除未使用的封面备份
 
-- 追加与替换为互斥选项。替换会显示受影响数量、说明将删除全部已有标签、先保存快照并提供批量还原。默认取消；Enter 不会确认。
-- 不直接修改用户自备引擎。运行时、venv 与软件包仅放在 Tagia 拥有的 tagia-runtime 子目录。
-- 卸载明确说明将递归且永久删除所列目录且无法撤销。两次确认，包括输入文件夹名称。默认取消；Enter 不会删除。
+- “还原上次替换的标签”只写回标签，不会覆盖整段备注。之后编辑的备注会保留。若已有 Tagia 区块，则只更新该区块。
+- 已从安装包中移除未使用的 _cover_backup/（旧封面副本）。
 ```
 
 ### 繁體中文
 
 ```
-v1.4.9 — 更安全的標籤取代、隔離使用者引擎、解除安裝確認
+v1.4.10 — 僅還原標籤；移除未使用的封面備份
 
-- 附加與取代為互斥選項。取代會顯示受影響數量、說明將刪除全部既有標籤、先保存快照並提供批次還原。預設取消；Enter 不會確認。
-- 不直接修改使用者自備引擎。執行環境、venv 與套件僅放在 Tagia 擁有的 tagia-runtime 子目錄。
-- 解除安裝明確說明將遞迴且永久刪除所列目錄且無法復原。兩次確認，包括輸入資料夾名稱。預設取消；Enter 不會刪除。
+- 「還原上次取代的標籤」只寫回標籤，不會覆寫整段備註。之後編輯的備註會保留。若已有 Tagia 區塊，則只更新該區塊。
+- 已從套件中移除未使用的 _cover_backup/（舊封面副本）。
 ```

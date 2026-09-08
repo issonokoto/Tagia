@@ -52,7 +52,7 @@
     "restoreBtn": "置き換えたタグを復元",
     "restoreNone": "復元できるタグのスナップショットがありません",
     "restoreConfirmTitle": "元のタグを復元しますか？",
-    "restoreConfirmDetail": "スナップショットの件数: {{count}}\n作成: {{when}}\n\n保存済みの元タグを書き戻して各アイテムを保存します。既定はキャンセルです。Enter では復元しません。",
+    "restoreConfirmDetail": "スナップショットの件数: {{count}}\n作成: {{when}}\n\n復元するのはタグだけです。メモ全体は上書きしません。メモに Tagia ブロックがある場合のみ、そのブロックを復元タグに合わせて更新し、それ以外の文章（タグ付け後の追記を含む）は残します。既定はキャンセルです。Enter では復元しません。",
     "restoreDone": "{{ok}} 件のタグを復元（見つからない {{missing}} 件）",
     "skipTagged": "タグ済みをスキップ",
     "rawtag": "生タグ (underscore)",
