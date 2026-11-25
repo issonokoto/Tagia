@@ -7,6 +7,38 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.14] — 2026-11-25
+
+### Fixed
+
+- Batch tagging and tag restoration now share a lock from the first click through completion, including confirmation and snapshot access.
+- Restoring an item with no original tags clears stale tag text inside its existing Tagia Note block.
+- The restore log and notification show separate counts for restored items, missing items, and failures.
+
+## [1.4.13] — 2026-10-16
+
+### Changed
+
+- Redesigned the plugin icon in Figma with reference to the official Eagle plugin icon template. The 128×128 PNG uses an opaque square background, visible padding, and a simplified blue tag/AI sparkle graphic that remains recognizable at smaller sizes.
+- Updated the main project's `logo.png` directly. Editable design: https://www.figma.com/design/f0fxSKSAVhKJFLoxXpXygs?node-id=2-16 . Previous icon backups and export previews are stored outside the plugin folder.
+
+## [1.4.12] — 2026-10-03
+
+### Fixed
+
+- Adding a Tagia block now preserves all original Note characters, including leading indentation, Markdown trailing spaces, multiple final newlines, and whitespace-only Notes. Only missing separator newlines are appended. Existing-block replacements insert tag text literally and preserve surrounding Note content.
+- Added byte-for-byte Note regression tests covering both append and replace batch-save paths.
+
+### Package
+
+- Removed the older nested `Tagia-1.4.10-review-fix-20260917.zip` from the main plugin project. Updated the live project in place for packaging through Eagle, with matching manifest/code version and no old nested archives or duplicate plugin copies. Exported packages are saved outside this folder.
+
+## [1.4.11] — 2026-09-17
+
+### Security
+
+- Restore confirmation in all five supported languages now explicitly states the affected item count, that the snapshot overwrites current tags, that later tag edits will be lost, and that the operation cannot be undone. The restore button uses destructive-action styling. Separate confirmation, default cancellation, and Enter-to-cancel are retained.
+
 ## [1.4.10] — 2026-09-07
 
 ### Security
@@ -194,40 +226,36 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## Community “What’s new” (paste-ready) — v1.4.10
+## Community “What’s new” (paste-ready)
 
 ### English
 
 ```
-v1.4.10 — Restore tags only; drop unused cover backups
-
-- Restore last replaced tags writes tags only. It does not overwrite the whole note. Later note edits survive. If a Tagia block already exists, only that block is updated.
-- Removed unused _cover_backup/ from the package (duplicate old covers).
+- Batch tagging and tag restoration now run one at a time, including while confirmation is open.
+- Restoring an item that originally had no tags now clears the old tags from its Tagia block in the Note.
+- Restore results now show how many items were restored, how many could not be found, and how many failed.
 ```
 
 ### 日本語
 
 ```
-v1.4.10 — タグのみ復元、未使用のカバーバックアップを削除
-
-- 「置き換えたタグを復元」はタグだけ書き戻します。メモ全体は上書きしません。あとから書いたメモは残ります。Tagia ブロックがある場合のみそのブロックを更新します。
-- 未使用の _cover_backup/（古いカバーの複製）をパッケージから削除しました。
+- 確認画面の表示中も含め、一括タグ付けと復元の二重実行を防ぐようにしました。
+- 元のタグが空だった項目を復元すると、メモのTagiaブロックに残っていたタグも消去されます。
+- 復元結果に、成功した件数、項目が見つからなかった件数、処理に失敗した件数を個別に表示します。
 ```
 
 ### 简体中文
 
 ```
-v1.4.10 — 仅还原标签；移除未使用的封面备份
-
-- “还原上次替换的标签”只写回标签，不会覆盖整段备注。之后编辑的备注会保留。若已有 Tagia 区块，则只更新该区块。
-- 已从安装包中移除未使用的 _cover_backup/（旧封面副本）。
+- 批量打标签和还原标签现在一次只能执行一项操作，等待确认时也不会重复启动。
+- 还原原本没有标签的项目时，会清除备注中 Tagia 区块里残留的标签。
+- 还原结果会分别显示还原成功、未找到和处理失败的项目数。
 ```
 
 ### 繁體中文
 
 ```
-v1.4.10 — 僅還原標籤；移除未使用的封面備份
-
-- 「還原上次取代的標籤」只寫回標籤，不會覆寫整段備註。之後編輯的備註會保留。若已有 Tagia 區塊，則只更新該區塊。
-- 已從套件中移除未使用的 _cover_backup/（舊封面副本）。
+- 批次加上標籤和還原標籤現在一次只能執行一項操作，等待確認時也不會重複啟動。
+- 還原原本沒有標籤的項目時，會清除備註中 Tagia 區塊裡殘留的標籤。
+- 還原結果會分別顯示還原成功、找不到和處理失敗的項目數。
 ```

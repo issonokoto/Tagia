@@ -21,7 +21,7 @@
 
   /** Must match manifest.json id / version */
   const PLUGIN_ID = 'c30c0fd0-df7a-4792-af3d-cf24674eba45';
-  const PLUGIN_VERSION = '1.4.10';
+  const PLUGIN_VERSION = '1.4.14';
   const OWNERSHIP_MARKER = '.tagia-owned.json';
   /** Tagia-owned runtime + venv for user-managed engines (never the user engine root). */
   const RUNTIME_DIR_NAME = 'tagia-runtime';
@@ -272,6 +272,7 @@
   let workerBuf = '';
   /** @type {Array<(msg:any)=>void>} */
   let pendingHandlers = [];
+  let tagOperationBusy = false;
   let tagging = false;
   let stopRequested = false;
   let pluginPath = '';
@@ -2091,18 +2092,21 @@
   /**
    * Merge tags into annotation without destroying free-form notes.
    * - Existing Tagia block → replace only that block
-   * - No block, empty memo → write block
-   * - No block, has memo → append block after user text
+   * - No block → preserve every original character and append the block
+   *   with only the newlines needed for a blank-line separator
    */
   function mergeAnnotationSafe(prev, tagsLine) {
     const block = buildTagiaBlock(tagsLine);
     const p = prev != null ? String(prev) : '';
     if (TAGIA_BLOCK_RE.test(p)) {
-      return p.replace(TAGIA_BLOCK_RE, block);
+      return p.replace(TAGIA_BLOCK_RE, () => block);
     }
-    const trimmed = p.trim();
-    if (!trimmed) return block;
-    return trimmed + '\n\n' + block;
+    if (!p) return block;
+    const newline = (p.match(/\r\n|\n|\r/) || ['\n'])[0];
+    const ending = p.match(/(?:\r\n|\n|\r)+$/);
+    const trailingNewlines = ending ? ending[0].match(/\r\n|\n|\r/g).length : 0;
+    const separator = newline.repeat(Math.max(0, 2 - trailingNewlines));
+    return p + separator + block;
   }
 
   function isEngineReady(cfg) {
@@ -2348,6 +2352,23 @@
     }
   }
 
+  // Acquire before selection, confirmation or snapshot access, including on double-click.
+  async function runTagOperation(operation) {
+    if (tagOperationBusy) return;
+    tagOperationBusy = true;
+    $('btnTag').disabled = true;
+    $('btnRestoreTags').disabled = true;
+    try {
+      await operation();
+    } catch (e) {
+      logMain(String(e && e.message || e), 'err');
+    } finally {
+      tagOperationBusy = false;
+      $('btnTag').disabled = false;
+      $('btnRestoreTags').disabled = false;
+    }
+  }
+
   async function restoreLastReplacedTags() {
     const snap = readTagSnapshot();
     if (!snap || !snap.items || !snap.items.length) {
@@ -2370,33 +2391,32 @@
       }),
       confirmLabel: t('tag.restoreBtn'),
       cancelLabel: t('common.cancel'),
-      danger: false,
+      danger: true,
     });
     if (!ok) return;
 
     let restored = 0;
     let missing = 0;
+    let failed = 0;
     const ids = snap.items.map((r) => r && r.id).filter(Boolean);
-    let loaded = [];
-    try {
-      if (typeof eagle.item.getByIds === 'function') {
-        loaded = await eagle.item.getByIds(ids);
+    let byId = null;
+    if (typeof eagle.item.getByIds === 'function') {
+      try {
+        const loaded = await eagle.item.getByIds(ids);
+        if (Array.isArray(loaded)) {
+          byId = new Map(loaded.filter((it) => it && it.id).map((it) => [String(it.id), it]));
+        }
+      } catch (e) {
+        logMain('restore lookup: ' + (e && e.message || e), 'warn');
       }
-    } catch {}
-    const byId = new Map();
-    (loaded || []).forEach((it) => {
-      if (it && it.id) byId.set(String(it.id), it);
-    });
+    }
     for (const row of snap.items) {
       if (!row || !row.id) {
-        missing++;
+        failed++;
         continue;
       }
       try {
-        let item = byId.get(String(row.id));
-        if (!item && typeof eagle.item.getById === 'function') {
-          item = await eagle.item.getById(row.id);
-        }
+        const item = byId ? byId.get(String(row.id)) : await eagle.item.getById(row.id);
         if (!item) {
           missing++;
           continue;
@@ -2406,28 +2426,29 @@
         // If a Tagia block already exists, update that block to match restored
         // tags and leave every other note (including later Eagle edits) intact.
         const prevNote = item.annotation != null ? String(item.annotation) : '';
-        if (TAGIA_BLOCK_RE.test(prevNote) && item.tags.length) {
+        if (TAGIA_BLOCK_RE.test(prevNote)) {
           item.annotation = mergeAnnotationSafe(prevNote, item.tags.join(', '));
         }
-        await item.save();
+        const saved = await item.save();
+        if (saved === false) throw new Error('Eagle could not save the item');
         restored++;
       } catch (e) {
-        missing++;
+        failed++;
         logMain('restore fail ' + (row.name || row.id) + ': ' + (e && e.message ? e.message : e), 'err');
       }
     }
-    logMain(t('tag.restoreDone', { ok: String(restored), missing: String(missing) }), restored ? 'ok' : 'warn');
+    const summary = t('tag.restoreDone', { ok: restored, missing, failed });
+    logMain(summary, missing || failed ? 'warn' : 'ok');
     try {
       await eagle.notification.show({
         title: t('app.title'),
-        body: t('tag.restoreDone', { ok: String(restored), missing: String(missing) }),
+        body: summary,
         duration: 4000,
       });
     } catch {}
   }
 
   async function runTagging() {
-    if (tagging) return;
     const cfg = readUiConfig();
     saveConfig(cfg);
 
@@ -2473,7 +2494,6 @@
 
     tagging = true;
     stopRequested = false;
-    $('btnTag').disabled = true;
     $('btnStop').disabled = false;
     setProgress(0, items.length, t('tag.preparing'));
     logMain(t('tag.startBatch', { count: items.length, device: cfg.device, model: cfg.model }), 'info');
@@ -2610,7 +2630,6 @@
     } finally {
       tagging = false;
       stopRequested = false;
-      $('btnTag').disabled = false;
       $('btnStop').disabled = true;
       if (!cfg.keepWorker) {
         killWorker();
@@ -3446,7 +3465,7 @@
       $('thresholdVal').textContent = parseFloat($('threshold').value).toFixed(2);
     });
 
-    $('btnTag').addEventListener('click', () => runTagging());
+    $('btnTag').addEventListener('click', () => runTagOperation(runTagging));
     if ($('modeAppend')) {
       $('modeAppend').addEventListener('change', () => {
         syncWriteModeHint();
@@ -3459,9 +3478,7 @@
         try { saveConfig(readUiConfig()); } catch {}
       });
     }
-    if ($('btnRestoreTags')) {
-      $('btnRestoreTags').addEventListener('click', () => restoreLastReplacedTags());
-    }
+    $('btnRestoreTags').addEventListener('click', () => runTagOperation(restoreLastReplacedTags));
     $('btnStop').addEventListener('click', () => {
       if (!tagging) return;
       stopRequested = true;

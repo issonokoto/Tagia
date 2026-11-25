@@ -4,14 +4,17 @@ Use before every Eagle Community upload. Based on [Review Criteria](https://deve
 
 ## Package
 
-- [ ] Built with Eagle package flow or clean zip of **runtime files only**
+- [ ] Package the main registered Tagia project directly with Eagle's **Pack Plugin** action; save the exported `.eagleplugin` outside this folder
+- [ ] Main project: matching manifest/code version; no nested archives or duplicate plugin copies
 - [ ] No `.git/`, `venv/`, `__pycache__/`, `*.pyc`, `_cover_backup/` (must not exist in the packaged tree), secrets, nested unrelated zips
-- [ ] **Before pack:** wipe caches: `Get-ChildItem -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force`
+- [ ] Check the main project's runtime directories for caches and unnecessary build output before packaging
 - [ ] Open the `.eagleplugin`/zip and confirm **no** `python/__pycache__/`
 - [ ] `manifest.json`: correct version, `devTools: false`, `platform`/`arch` match claims
 - [ ] Install the `.eagleplugin` on a clean machine/profile and smoke-test Tag + Install
 
 ## Security claims vs code
+
+- [ ] Run `node --test tools/annotation.test.cjs`: first-line indentation, Markdown trailing spaces, multiple final newlines, whitespace-only Notes, existing block boundaries, and batch saves preserve all original Note content
 
 - [ ] Install only uses hash-locked requirements (`--require-hashes`)
 - [ ] No unconstrained `pip install --upgrade pip`
@@ -19,6 +22,7 @@ Use before every Eagle Community upload. Based on [Review Criteria](https://deve
 - [ ] Uninstall: ownership marker only; no shared HF cache deletion; two confirmations; type folder name; Cancel default; Enter does not delete
 - [ ] Replace mode: radio (not checkbox), fail-closed confirm with count, snapshot + restore
 - [ ] Restore last replaced tags writes **tags only** (never whole-note overwrite; Tagia block only if already present)
+- [ ] In all five languages, restore confirmation states item count, current-tag overwrite, loss of edits after the snapshot, and no undo; Cancel is focused by default, and Enter cancels.
 - [ ] User-managed engine: no in-place venv/file overwrite; `tagia-runtime` subdirectory only
 - [ ] winget / Python installer: exact version + verification paths unchanged
 - [ ] Listing matches behavior (Python install persists, HF first download + **shared cache retained**, Windows-only)
@@ -34,6 +38,8 @@ Use before every Eagle Community upload. Based on [Review Criteria](https://deve
 - [ ] No claims for macOS/Linux one-click setup
 
 ## Visual assets
+
+- [ ] Icon: `logo.png` is the current 128×128 Figma export; verify safe padding and legibility at 128, 64, and 32 pixels
 
 - [ ] Covers ≥ 1560×1040
 - [ ] Little text; large title + short tagline + ≤3 chips

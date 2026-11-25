@@ -1,4 +1,4 @@
-# Tagia (Eagle Plugin) v1.4.10
+# Tagia (Eagle Plugin) v1.4.14
 
 Local AI image tagging for [Eagle](https://eagle.cool/).  
 Engine snapshot: [corkborg/wd14-tagger-standalone](https://github.com/corkborg/wd14-tagger-standalone) (pinned commit; product name is **Tagia**).
@@ -57,6 +57,14 @@ Release notes / changelog (required for updates): see `CHANGELOG.md`.
 | EVA02 Large v3 | Best quality, heavier |
 | Z3D / e621 | Furry / anthro |
 | Camie v2 | Alternate tagger family |
+
+## Packaging with Eagle
+
+The plugin icon is an editable Figma vector design: [Tagia — Eagle Plugin Icon](https://www.figma.com/design/f0fxSKSAVhKJFLoxXpXygs?node-id=2-16). `logo.png` is its 128×128 PNG export, with an opaque background and padded tag/spark silhouette. The design references the [official Eagle icon template](https://www.figma.com/community/file/1301113485954941759/eagle-plugins-icon-template-english-version). Export previews, SVG sources, and previous icons are kept outside this project folder.
+
+Run `node --test tools/annotation.test.cjs` to check Note preservation, including byte-for-byte whitespace and batch save behavior.
+The main project folder is the live Tagia plugin. Its runtime files and `manifest.json` are updated in place. In Eagle's plugin panel, right-click this Tagia project and choose **Pack Plugin**.
+Save the exported `.eagleplugin` outside the project folder so it cannot be included in a later package. Before exporting, check that the project contains no old plugin archives, runtime caches, or duplicate plugin copies.
 
 ## License
 

@@ -1,4 +1,4 @@
-# Tagia security & supply-chain notes (v1.4.10)
+# Tagia security & supply-chain notes (v1.4.14)
 
 ## Engine (bundled)
 
@@ -32,7 +32,11 @@ Tagia does not write venv, `worker.py`, lock files, or pip packages into a user-
 
 ## Tag replacement
 
+Note writes preserve the complete existing Note string, including indentation, Markdown trailing spaces, whitespace-only content, and final newlines. When no Tagia block exists, only missing separator newlines and the new block are appended. When a block exists, only that block is replaced; tag text is inserted literally. Regression tests cover both append and replace batch-save paths.
+
 Replace mode requires an in-plugin confirmation (Cancel default; Enter does not confirm) and writes a SHA-256 snapshot of original tags for batch restore.
+
+Restore has a separate confirmation in all five supported languages stating the affected item count, that current tags are overwritten by the snapshot, that later tag edits are lost, and that the operation cannot be undone. Cancel is the default; Enter cancels. Restore does not back up current tags or provide undo.
 
 ## Models (Hugging Face)
 

@@ -1,4 +1,4 @@
-# Tagia — Eagle Community listing copy (v1.4.10)
+# Tagia — Eagle Community listing copy (v1.4.14)
 
 **4 languages = same sections and same disclosures.**  
 Paste only **Name / Description / Introduction** into each language tab.
